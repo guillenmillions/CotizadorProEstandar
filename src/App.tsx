@@ -1,1162 +1,740 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  Calculator, FileText, Database, Plus, Trash2, Printer,
-  Edit3, Save, Package, Clock, RefreshCw, AlertTriangle,
-  Pause, Play, Copy, List, X, Flag, Layers, ChevronRight, MoreHorizontal,
-} from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 
-// ══════════════════════════════════════════════════════════════════════════
-// CATÁLOGOS INICIALES
-// ══════════════════════════════════════════════════════════════════════════
-const PROCS_INIT = [
-  { id:"P01", nombre:"Fresado CNC 3 Ejes",      cat:"Fresado",      tarifa:280 },
-  { id:"P02", nombre:"Fresado CNC 5 Ejes",      cat:"Fresado",      tarifa:450 },
-  { id:"P03", nombre:"Torno CNC",               cat:"Torneado",     tarifa:260 },
-  { id:"P04", nombre:"Torno Convencional",      cat:"Torneado",     tarifa:180 },
-  { id:"P05", nombre:"Taladrado",               cat:"Taladrado",    tarifa:150 },
-  { id:"P06", nombre:"Roscado / Tap",           cat:"Taladrado",    tarifa:165 },
-  { id:"P07", nombre:"Rectificado Plano",       cat:"Rectificado",  tarifa:320 },
-  { id:"P08", nombre:"Rectificado Cilíndrico",  cat:"Rectificado",  tarifa:350 },
-  { id:"P09", nombre:"Soldadura MIG/MAG",       cat:"Soldadura",    tarifa:200 },
-  { id:"P10", nombre:"Soldadura TIG",           cat:"Soldadura",    tarifa:280 },
-  { id:"P11", nombre:"Programación CNC",        cat:"Setup",        tarifa:350 },
-  { id:"P12", nombre:"Ensamble Mecánico",       cat:"Ensamble",     tarifa:160 },
-  { id:"P13", nombre:"Inspección / CMM",        cat:"Calidad",      tarifa:220 },
-  { id:"P14", nombre:"Corte Láser",             cat:"Corte",        tarifa:380 },
-  { id:"P15", nombre:"Corte Plasma",            cat:"Corte",        tarifa:250 },
-  { id:"P16", nombre:"Doblado / Prensa",        cat:"Formado",      tarifa:200 },
-  { id:"P17", nombre:"Pulido / Acabado",        cat:"Acabados",     tarifa:180 },
-  { id:"P18", nombre:"Pintura / Recubrimiento", cat:"Acabados",     tarifa:160 },
-];
+// ─── CONFIGURACIÓN SUPABASE ───────────────────────────────────────────────────
+const SUPABASE_URL = "https://hanvrxmzgyimgsxobjey.supabase.co";
+const SUPABASE_KEY = "sb_publishable_AMnOqs0pzAkqTR-gMDofAg_0BpOKVig";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const MATS_INIT = [
-  { id:"M01", nombre:"Acero 1018",         tipo:"Acero al Carbono",  spec:"AISI 1018",  pkKg:28   },
-  { id:"M02", nombre:"Acero 1045",         tipo:"Acero al Carbono",  spec:"AISI 1045",  pkKg:34   },
-  { id:"M03", nombre:"Acero 4140",         tipo:"Acero Aleado",      spec:"AISI 4140",  pkKg:58   },
-  { id:"M04", nombre:"Acero 4340",         tipo:"Acero Aleado",      spec:"AISI 4340",  pkKg:78   },
-  { id:"M05", nombre:"Inox 304",           tipo:"Acero Inoxidable",  spec:"AISI 304",   pkKg:125  },
-  { id:"M06", nombre:"Inox 316L",          tipo:"Acero Inoxidable",  spec:"AISI 316L",  pkKg:148  },
-  { id:"M07", nombre:"Aluminio 6061-T6",   tipo:"Aluminio",          spec:"AA 6061-T6", pkKg:98   },
-  { id:"M08", nombre:"Aluminio 7075-T6",   tipo:"Aluminio",          spec:"AA 7075-T6", pkKg:185  },
-  { id:"M09", nombre:"Aluminio 2024-T3",   tipo:"Aluminio",          spec:"AA 2024-T3", pkKg:168  },
-  { id:"M10", nombre:"Latón C360",         tipo:"Latón",             spec:"C36000",     pkKg:225  },
-  { id:"M11", nombre:"Cobre C110",         tipo:"Cobre",             spec:"C11000",     pkKg:298  },
-  { id:"M12", nombre:"Nylon PA6/6",        tipo:"Plástico Técnico",  spec:"PA6.6",      pkKg:182  },
-  { id:"M13", nombre:"Delrin (POM-C)",     tipo:"Plástico Técnico",  spec:"POM-C",      pkKg:225  },
-  { id:"M14", nombre:"UHMWPE",             tipo:"Plástico Técnico",  spec:"UHMWPE",     pkKg:198  },
-  { id:"M15", nombre:"Titanio Ti-6Al-4V",  tipo:"Titanio",           spec:"Grado 5",    pkKg:1850 },
-];
+// ─── FÓRMULA DEL MOTOR (no modificar) ────────────────────────────────────────
+function calcular(labor, material, extras, pctGD, pctSGV, pctMargen) {
+  const costoDirecto = labor + material + extras;
+  const gastosDirectos = costoDirecto * (pctGD / 100);
+  const subtotalGD = costoDirecto + gastosDirectos;
+  const gastosSGV = subtotalGD * (pctSGV / 100);
+  const costoEmpresa = subtotalGD + gastosSGV;
+  const precioVenta = costoEmpresa / (1 - pctMargen / 100);
+  const utilidad = precioVenta - costoEmpresa;
+  const margenReal = (utilidad / precioVenta) * 100;
+  return { costoDirecto, gastosDirectos, subtotalGD, gastosSGV, costoEmpresa, precioVenta, utilidad, margenReal };
+}
 
-// ══════════════════════════════════════════════════════════════════════════
-// ESTADOS DE COTIZACIÓN
-// ══════════════════════════════════════════════════════════════════════════
-const STATUS = {
-  borrador:      { label:"Borrador",            short:"Borrador",   color:"#64748b", bg:"#f1f5f9", dot:"#94a3b8" },
-  en_proceso:    { label:"En Proceso",          short:"Proceso",    color:"#2563eb", bg:"#eff6ff", dot:"#3b82f6" },
-  pausada:       { label:"Pausada",             short:"Pausada",    color:"#d97706", bg:"#fffbeb", dot:"#f59e0b" },
-  esperando_ext: { label:"Esp. Cotización",     short:"Esperando",  color:"#7c3aed", bg:"#f5f3ff", dot:"#8b5cf6" },
-  enviada:       { label:"Enviada a Cliente",   short:"Enviada",    color:"#0891b2", bg:"#ecfeff", dot:"#06b6d4" },
-  completada:    { label:"Completada",          short:"Completada", color:"#15803d", bg:"#dcfce7", dot:"#22c55e" },
+function fmt(n) {
+  return "$" + Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ─── DATOS INICIALES ──────────────────────────────────────────────────────────
+const DATOS_INICIALES = {
+  taller: { nombre: "", telefono: "", email: "", logo: "" },
+  config: { pctGD: 35, pctSGV: 15, pctMargen: 25 },
+  tema: "oscuro",
+  fuente: "IBM Plex Sans",
+  tamTexto: "normal",
+  plantillaPDF: "formal",
+  materiales: [
+    { id: 1, nombre: "Acero 1018", precio: 45 },
+    { id: 2, nombre: "Acero inoxidable 304", precio: 120 },
+    { id: 3, nombre: "Aluminio 6061", precio: 85 },
+  ],
+  procesos: [
+    { id: 1, nombre: "Torno CNC", tarifa: 350 },
+    { id: 2, nombre: "Fresadora CNC", tarifa: 400 },
+    { id: 3, nombre: "Rectificado", tarifa: 280 },
+  ],
+  cotizaciones: [],
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// UTILIDADES
-// ══════════════════════════════════════════════════════════════════════════
-const uid  = () => Math.random().toString(36).slice(2,10);
-const gFolio = () => `COT-${new Date().getFullYear()}-${String(Math.floor(Math.random()*9000)+1000)}`;
-const mxn = (n) => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:2}).format(n||0);
-const pct  = (n) => `${(n||0).toFixed(1)}%`;
-const today = () => new Date().toLocaleDateString("es-MX",{year:"numeric",month:"short",day:"numeric"});
-const LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-// ══════════════════════════════════════════════════════════════════════════
-// MOTOR DE CÁLCULO
-// ══════════════════════════════════════════════════════════════════════════
-const calcPartida = (p, procs, mats, cfg) => {
-  const laborDet = (p.labor||[]).map(l => {
-    const proc = procs.find(x=>x.id===l.procId)||{};
-    return {...l, nombre:proc.nombre||"—", tarifa:proc.tarifa||0, total:(proc.tarifa||0)*(l.horas||0)*(l.cant||1)};
-  });
-  const costoLabor = laborDet.reduce((s,i)=>s+i.total,0);
-  const matDet = (p.mats||[]).map(m => {
-    const mat = mats.find(x=>x.id===m.matId)||{};
-    const pu = m.precioCustom!=null ? m.precioCustom : (mat.pkKg||0);
-    const base = pu*(m.cant||0);
-    const conMk = base*(1+(cfg.mkMat||0)/100);
-    return {...m, nombre:mat.nombre||"—", pu, base, conMk};
-  });
-  const costoMats = matDet.reduce((s,i)=>s+i.conMk,0);
-  const costoExt  = (p.extras||[]).reduce((s,e)=>s+(parseFloat(e.costo)||0),0);
-  const directo = costoLabor+costoMats+costoExt;
-  const gd      = directo*(cfg.gd||0)/100;
-  const subGD   = directo+gd;
-  const sgv     = subGD*(cfg.sgv||0)/100;
-  const empresa = subGD+sgv;
-  const margen  = Math.min(cfg.margen||0, 99.9);
-  const venta   = empresa/(1-margen/100);
-  const utilidad= venta-empresa;
-  const margenR = venta>0 ? (utilidad/venta)*100 : 0;
-  return {laborDet,matDet,costoLabor,costoMats,costoExt,directo,gd,subGD,sgv,empresa,venta,utilidad,margenR,xPza:venta/(p.qty||1)};
+// ─── TEMAS ────────────────────────────────────────────────────────────────────
+const TEMAS = {
+  oscuro: {
+    bg: "#0f1117", card: "#1a1d27", border: "#2a2d3e",
+    text: "#e8eaf0", textSub: "#8b8fa8", accent: "#4f6ef7",
+    accentHover: "#3d5ce0", success: "#22c55e", danger: "#ef4444",
+    input: "#12151f", header: "#13161f",
+  },
+  claro: {
+    bg: "#f4f5f9", card: "#ffffff", border: "#e2e4ed",
+    text: "#1a1d27", textSub: "#6b7080", accent: "#4f6ef7",
+    accentHover: "#3d5ce0", success: "#16a34a", danger: "#dc2626",
+    input: "#f8f9fc", header: "#ffffff",
+  },
+  marino: {
+    bg: "#0a1628", card: "#0f2040", border: "#1a3a6b",
+    text: "#cdd8f0", textSub: "#7a96c4", accent: "#38bdf8",
+    accentHover: "#0ea5e9", success: "#34d399", danger: "#f87171",
+    input: "#0d1c36", header: "#0d1c36",
+  },
 };
 
-const calcTotales = (quote, procs, mats) => {
-  const parts = (quote.partidas||[]).map(p=>({...p, calc:calcPartida(p,procs,mats,quote.config||{})}));
-  const totalVenta   = parts.reduce((s,p)=>s+p.calc.venta,0);
-  const totalEmpresa = parts.reduce((s,p)=>s+p.calc.empresa,0);
-  const totalUtilidad= parts.reduce((s,p)=>s+p.calc.utilidad,0);
-  const margenGlobal = totalVenta>0 ? (totalUtilidad/totalVenta)*100 : 0;
-  return {parts, totalVenta, totalEmpresa, totalUtilidad, margenGlobal};
-};
+// ═══════════════════════════════════════════════════════════════════════════════
+// PANTALLA DE LOGIN
+// ═══════════════════════════════════════════════════════════════════════════════
+function PantallaLogin({ onLogin }) {
+  const [modo, setModo] = useState("login"); // login | registro | reset
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [cargando, setCargando] = useState(false);
+  const [mensaje, setMensaje] = useState(null);
 
-// ══════════════════════════════════════════════════════════════════════════
-// ESTRUCTURAS POR DEFECTO
-// ══════════════════════════════════════════════════════════════════════════
-const mkPartida = (idx=0) => ({
-  id: uid(), nombre:`Pieza ${LETRAS[idx]||String(idx+1)}`,
-  plano:"", qty:1, unidad:"pza", prioridad:"normal",
-  labor:[], mats:[], extras:[],
-});
+  const t = TEMAS.oscuro;
 
-const mkQuote = () => ({
-  id:uid(), folio:gFolio(), status:"borrador", pausaNota:"",
-  fecha:today(), validez:30,
-  cliente:{nombre:"",empresa:"",email:"",tel:"",ciudad:""},
-  cond:{entrega:"",pago:"Anticipo 50% / Liquidación a entrega",notas:""},
-  partidas:[mkPartida(0)],
-  config:{gd:35,sgv:15,margen:25,mkMat:10,tc:17.5},
-});
+  async function handleLogin(e) {
+    e.preventDefault();
+    setCargando(true);
+    setMensaje(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setMensaje({ tipo: "error", texto: "Correo o contraseña incorrectos." });
+    setCargando(false);
+  }
 
-// ══════════════════════════════════════════════════════════════════════════
-// ESTILOS BASE
-// ══════════════════════════════════════════════════════════════════════════
-const S = {
-  lbl:{ display:"block", fontSize:11, fontWeight:700, color:"#64748b",
-        letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:5,
-        fontFamily:"'IBM Plex Mono',monospace" },
-  inp:{ width:"100%", padding:"9px 12px", borderRadius:6,
-        border:"1px solid #e2e8f0", fontSize:13, color:"#0f1923",
-        outline:"none", boxSizing:"border-box", background:"#fafcff",
-        fontFamily:"'IBM Plex Sans',sans-serif" },
-  btnO:{ display:"inline-flex", alignItems:"center", gap:6,
-         padding:"8px 16px", background:"#f97316", color:"white",
-         border:"none", borderRadius:7, cursor:"pointer",
-         fontSize:13, fontWeight:700, fontFamily:"'IBM Plex Sans',sans-serif" },
-  btnG:{ display:"inline-flex", alignItems:"center", gap:6,
-         padding:"7px 13px", background:"transparent", color:"#64748b",
-         border:"1px solid #e2e8f0", borderRadius:7, cursor:"pointer",
-         fontSize:12, fontFamily:"'IBM Plex Sans',sans-serif" },
-};
+  async function handleRegistro(e) {
+    e.preventDefault();
+    setCargando(true);
+    setMensaje(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setMensaje({ tipo: "error", texto: error.message });
+    else setMensaje({ tipo: "ok", texto: "¡Cuenta creada! Revisa tu correo para confirmar." });
+    setCargando(false);
+  }
 
-// ══════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ══════════════════════════════════════════════════════════════════════════
-export default function CotizadorPro() {
-  const [quotes, setQuotes]     = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [vista, setVista]       = useState("lista");
-  const [tab, setTab]           = useState("datos");   // datos|labor|mats|extras|config
-  const [pidx, setPidx]         = useState(0);         // partida index activa
-  const [procs, setProcs]       = useState(PROCS_INIT);
-  const [mats, setMats]         = useState(MATS_INIT);
-  const [loaded, setLoaded]     = useState(false);
-  const [pauseDlg, setPauseDlg] = useState(false);
-  const [pauseNote, setPauseNote] = useState("");
-  const [pauseStatus, setPauseStatus] = useState("pausada");
-  const [editProc, setEditProc] = useState(null);
-  const [editMat, setEditMat]   = useState(null);
-  const [menuOpen, setMenuOpen] = useState(null); // quote id for context menu
+  async function handleReset(e) {
+    e.preventDefault();
+    setCargando(true);
+    setMensaje(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) setMensaje({ tipo: "error", texto: error.message });
+    else setMensaje({ tipo: "ok", texto: "Te enviamos un enlace para restablecer tu contraseña." });
+    setCargando(false);
+  }
 
-  // ── Storage ──────────────────────────────────────────────────────────────
-  useEffect(()=>{
-    (async()=>{
-      try {
-        const q = { value: localStorage.getItem("cot_v2_quotes") };
-        if(q) setQuotes(JSON.parse(q.value));
-        const p = { value: localStorage.getItem("cot_v2_procs") };
-        if(p) setProcs(JSON.parse(p.value));
-        const m = { value: localStorage.getItem("cot_v2_mats") };
-        if(m) setMats(JSON.parse(m.value));
-      } catch{}
-      setLoaded(true);
-    })();
-  },[]);
-
-  const saveQ = async (next) => {
-    setQuotes(next);
-    try { localStorage.setItem("cot_v2_quotes", JSON.stringify(next)); } catch{}
+  const inputStyle = {
+    width: "100%", padding: "12px 14px", borderRadius: 8,
+    border: `1px solid ${t.border}`, background: t.input,
+    color: t.text, fontSize: 15, outline: "none", boxSizing: "border-box",
   };
-  const saveProcs = async (next) => {
-    setProcs(next);
-    try { localStorage.setItem("cot_v2_procs", JSON.stringify(next)); } catch{}
-  };
-  const saveMats = async (next) => {
-    setMats(next);
-    try { localStorage.setItem("cot_v2_mats", JSON.stringify(next)); } catch{}
+  const btnStyle = {
+    width: "100%", padding: "13px", borderRadius: 8, border: "none",
+    background: t.accent, color: "#fff", fontSize: 16, fontWeight: 700,
+    cursor: cargando ? "not-allowed" : "pointer", opacity: cargando ? 0.7 : 1,
   };
 
-  // ── Derived state ────────────────────────────────────────────────────────
-  const aq = quotes.find(q=>q.id===activeId);
-  const totales = aq ? calcTotales(aq,procs,mats) : null;
-  const safePidx = aq ? Math.min(pidx, aq.partidas.length-1) : 0;
-  const ap   = totales?.parts[safePidx];         // active partida (with calc)
-  const apc  = ap?.calc || null;                 // active partida calc
+  return (
+    <div style={{
+      minHeight: "100vh", background: t.bg, display: "flex",
+      alignItems: "center", justifyContent: "center",
+      fontFamily: "'IBM Plex Sans', sans-serif",
+    }}>
+      <div style={{
+        width: 400, background: t.card, borderRadius: 16,
+        border: `1px solid ${t.border}`, padding: 40,
+      }}>
+        {/* Logo / título */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 56, height: 56, borderRadius: 14, background: t.accent,
+            marginBottom: 16, fontSize: 26,
+          }}>⚙️</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: t.text }}>CotizadorPRO</div>
+          <div style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>Estándar — Sistema de Cotización Industrial</div>
+        </div>
 
-  // ── Quote mutation helpers ───────────────────────────────────────────────
-  const mutateQ = useCallback((updater) => {
-    setQuotes(prev=>{
-      const next = prev.map(q => q.id===activeId ? updater(structuredClone(q)) : q);
-      try{ localStorage.setItem("cot_v2_quotes", JSON.stringify(next)); }catch{}
-      return next;
-    });
-  },[activeId]);
+        {/* Tabs */}
+        {modo !== "reset" && (
+          <div style={{ display: "flex", marginBottom: 28, background: t.input, borderRadius: 8, padding: 4 }}>
+            {["login", "registro"].map(m => (
+              <button key={m} onClick={() => { setModo(m); setMensaje(null); }} style={{
+                flex: 1, padding: "9px 0", border: "none", borderRadius: 6, cursor: "pointer",
+                background: modo === m ? t.accent : "transparent",
+                color: modo === m ? "#fff" : t.textSub,
+                fontWeight: 600, fontSize: 14, transition: "all 0.2s",
+              }}>
+                {m === "login" ? "Iniciar sesión" : "Registrarse"}
+              </button>
+            ))}
+          </div>
+        )}
 
-  const setQField = (path,val) => mutateQ(q=>{
-    const keys=path.split(".");
-    let o=q; for(let i=0;i<keys.length-1;i++) o=o[keys[i]];
-    o[keys[keys.length-1]]=val; return q;
-  });
+        {/* Formulario */}
+        <form onSubmit={modo === "login" ? handleLogin : modo === "registro" ? handleRegistro : handleReset}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {modo === "reset" && (
+              <div style={{ color: t.textSub, fontSize: 14, marginBottom: 4 }}>
+                Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+              </div>
+            )}
+            <input
+              style={inputStyle} type="email" placeholder="Correo electrónico"
+              value={email} onChange={e => setEmail(e.target.value)} required
+            />
+            {modo !== "reset" && (
+              <input
+                style={inputStyle} type="password" placeholder="Contraseña (mínimo 6 caracteres)"
+                value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
+              />
+            )}
+            <button type="submit" style={btnStyle} disabled={cargando}>
+              {cargando ? "Procesando..." : modo === "login" ? "Entrar" : modo === "registro" ? "Crear cuenta" : "Enviar enlace"}
+            </button>
+          </div>
+        </form>
 
-  const mutatePartida = (pi, fn) => mutateQ(q=>{ q.partidas[pi]=fn(q.partidas[pi]); return q; });
+        {/* Mensaje */}
+        {mensaje && (
+          <div style={{
+            marginTop: 16, padding: "10px 14px", borderRadius: 8, fontSize: 14,
+            background: mensaje.tipo === "ok" ? "#14532d33" : "#7f1d1d33",
+            color: mensaje.tipo === "ok" ? t.success : t.danger,
+            border: `1px solid ${mensaje.tipo === "ok" ? t.success : t.danger}`,
+          }}>
+            {mensaje.texto}
+          </div>
+        )}
 
-  // Partida field setter
-  const setPField = (pi,path,val) => mutatePartida(pi,p=>{
-    const keys=path.split(".");
-    let o=p; for(let i=0;i<keys.length-1;i++) o=o[keys[i]];
-    o[keys[keys.length-1]]=val; return p;
-  });
-
-  // Labor
-  const addLabor = () => mutatePartida(safePidx,p=>({...p,labor:[...p.labor,{id:uid(),procId:procs[0]?.id||"",horas:1,cant:1,notas:""}]}));
-  const updL = (id,k,v) => mutatePartida(safePidx,p=>({...p,labor:p.labor.map(l=>l.id===id?{...l,[k]:v}:l)}));
-  const delL = (id) => mutatePartida(safePidx,p=>({...p,labor:p.labor.filter(l=>l.id!==id)}));
-
-  // Mats
-  const addMat = () => mutatePartida(safePidx,p=>({...p,mats:[...p.mats,{id:uid(),matId:mats[0]?.id||"",cant:1,unidad:"kg",precioCustom:null}]}));
-  const updM = (id,k,v) => mutatePartida(safePidx,p=>({...p,mats:p.mats.map(m=>m.id===id?{...m,[k]:v}:m)}));
-  const delM = (id) => mutatePartida(safePidx,p=>({...p,mats:p.mats.filter(m=>m.id!==id)}));
-
-  // Extras
-  const addExt = () => mutatePartida(safePidx,p=>({...p,extras:[...p.extras,{id:uid(),desc:"",costo:0}]}));
-  const updE = (id,k,v) => mutatePartida(safePidx,p=>({...p,extras:p.extras.map(e=>e.id===id?{...e,[k]:v}:e)}));
-  const delE = (id) => mutatePartida(safePidx,p=>({...p,extras:p.extras.filter(e=>e.id!==id)}));
-
-  // ── Quote management ─────────────────────────────────────────────────────
-  const newQuote = () => {
-    const q = mkQuote();
-    saveQ([...quotes, q]);
-    setActiveId(q.id); setVista("editor"); setTab("datos"); setPidx(0);
-  };
-
-  const openQuote = (id) => {
-    setActiveId(id); setVista("editor"); setTab("datos"); setPidx(0); setMenuOpen(null);
-  };
-
-  const dupQuote = (id) => {
-    const orig = quotes.find(q=>q.id===id);
-    if(!orig) return;
-    const nq = {...structuredClone(orig), id:uid(), folio:gFolio(), status:"borrador", pausaNota:"", fecha:today()};
-    saveQ([...quotes, nq]); setMenuOpen(null);
-  };
-
-  const delQuote = (id) => {
-    saveQ(quotes.filter(q=>q.id!==id));
-    if(activeId===id){ setActiveId(null); setVista("lista"); }
-    setMenuOpen(null);
-  };
-
-  const setStatus = (id,status,nota="") => {
-    setQuotes(prev=>{
-      const next=prev.map(q=>q.id===id?{...q,status,pausaNota:nota}:q);
-      try{ localStorage.setItem("cot_v2_quotes", JSON.stringify(next)); }catch{};
-      return next;
-    });
-  };
-
-  const confirmPause = () => {
-    setStatus(activeId, pauseStatus, pauseNote);
-    setPauseDlg(false); setPauseNote(""); setPauseStatus("pausada");
-  };
-
-  const addPartida = () => {
-    if(!aq) return;
-    const idx = aq.partidas.length;
-    mutateQ(q=>{ q.partidas.push(mkPartida(idx)); return q; });
-    setPidx(idx);
-  };
-
-  const removePartida = (pi) => {
-    if(!aq || aq.partidas.length<=1) return;
-    mutateQ(q=>{ q.partidas.splice(pi,1); return q; });
-    setPidx(Math.max(0, safePidx - (pi<=safePidx?1:0)));
-  };
-
-
-  // ── Status badge ─────────────────────────────────────────────────────────
-  const StatusBadge = ({status,size="sm"}) => {
-    const st=STATUS[status]||STATUS.borrador;
-    return(
-      <span style={{fontSize:size==="sm"?11:12,fontWeight:700,padding:size==="sm"?"2px 8px":"4px 12px",
-        borderRadius:20,background:st.bg,color:st.color,display:"inline-flex",alignItems:"center",gap:5,
-        fontFamily:"'IBM Plex Sans',sans-serif",whiteSpace:"nowrap"}}>
-        <span style={{width:6,height:6,borderRadius:"50%",background:st.dot,display:"inline-block"}}/>
-        {size==="sm"?st.short:st.label}
-      </span>
-    );
-  };
-
-  // ══════════════════════════════════════════════════════════════════════
-  // LOADING
-  // ══════════════════════════════════════════════════════════════════════
-  if(!loaded) return(
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0f1923",color:"#94a3b8",fontFamily:"'IBM Plex Mono',monospace",fontSize:14}}>
-      Cargando CotizadorPRO…
+        {/* Links */}
+        <div style={{ marginTop: 20, textAlign: "center", fontSize: 13, color: t.textSub }}>
+          {modo === "login" && (
+            <span onClick={() => { setModo("reset"); setMensaje(null); }}
+              style={{ cursor: "pointer", color: t.accent }}>¿Olvidaste tu contraseña?</span>
+          )}
+          {modo === "reset" && (
+            <span onClick={() => { setModo("login"); setMensaje(null); }}
+              style={{ cursor: "pointer", color: t.accent }}>← Volver al login</span>
+          )}
+        </div>
+      </div>
     </div>
   );
+}
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════════════════════════
-  return(
-    <div style={{fontFamily:"'IBM Plex Sans',sans-serif",minHeight:"100vh",background:"#f0f4f8"}} onClick={()=>setMenuOpen(null)}>
-      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+// ═══════════════════════════════════════════════════════════════════════════════
+// APP PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════════════════
+export default function CotizadorProEstandar() {
+  const [sesion, setSesion] = useState(null);
+  const [cargandoSesion, setCargandoSesion] = useState(true);
+  const [datos, setDatos] = useState(DATOS_INICIALES);
+  const [guardando, setGuardando] = useState(false);
+  const [pestana, setPestana] = useState("cotizar");
 
-      {/* ══ HEADER ══ */}
-      <header style={{background:"#0f1923",borderBottom:"1px solid #1e3a5f",position:"sticky",top:0,zIndex:50}}>
-        <div style={{maxWidth:1300,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",gap:12,height:52}}>
-          <div style={{width:30,height:30,background:"#f97316",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            <Calculator size={16} color="white"/>
+  // ── Auth listener ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSesion(session);
+      setCargandoSesion(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSesion(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // ── Cargar datos del taller desde Supabase ──────────────────────────────────
+  useEffect(() => {
+    if (!sesion) return;
+    async function cargarDatos() {
+      const { data, error } = await supabase
+        .from("cotizaciones")
+        .select("datos")
+        .eq("user_id", sesion.user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (data && !error) {
+        setDatos({ ...DATOS_INICIALES, ...data.datos });
+      }
+    }
+    cargarDatos();
+  }, [sesion]);
+
+  // ── Guardar datos en Supabase ───────────────────────────────────────────────
+  const guardarDatos = useCallback(async (nuevosDatos) => {
+    if (!sesion) return;
+    setGuardando(true);
+    const payload = { user_id: sesion.user.id, datos: nuevosDatos, updated_at: new Date().toISOString() };
+    // Upsert basado en user_id
+    const { error } = await supabase.from("cotizaciones").upsert(payload, { onConflict: "user_id" });
+    if (error) console.error("Error guardando:", error);
+    setGuardando(false);
+  }, [sesion]);
+
+  const actualizarDatos = useCallback((cambios) => {
+    setDatos(prev => {
+      const nuevo = { ...prev, ...cambios };
+      guardarDatos(nuevo);
+      return nuevo;
+    });
+  }, [guardarDatos]);
+
+  async function cerrarSesion() {
+    await supabase.auth.signOut();
+  }
+
+  // ── Estados de carga ────────────────────────────────────────────────────────
+  if (cargandoSesion) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#4f6ef7", fontSize: 18, fontFamily: "IBM Plex Sans, sans-serif" }}>Cargando CotizadorPRO…</div>
+      </div>
+    );
+  }
+
+  if (!sesion) return <PantallaLogin />;
+
+  const t = TEMAS[datos.tema] || TEMAS.oscuro;
+
+  const estiloGlobal = `
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: ${t.bg}; color: ${t.text}; font-family: '${datos.fuente}', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: ${t.bg}; }
+    ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 3px; }
+    input, select, textarea { font-family: '${datos.fuente}', sans-serif; }
+  `;
+
+  const tamFuente = datos.tamTexto === "chico" ? 13 : datos.tamTexto === "grande" ? 16 : 14;
+
+  return (
+    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontSize: tamFuente, fontFamily: `'${datos.fuente}', sans-serif` }}>
+      <style>{estiloGlobal}</style>
+
+      {/* ── HEADER ── */}
+      <header style={{
+        background: t.header, borderBottom: `1px solid ${t.border}`,
+        padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between",
+        position: "sticky", top: 0, zIndex: 100,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {datos.taller.logo
+            ? <img src={datos.taller.logo} alt="logo" style={{ height: 36, borderRadius: 6, objectFit: "contain" }} />
+            : <div style={{ width: 36, height: 36, borderRadius: 8, background: t.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚙️</div>
+          }
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: t.text }}>{datos.taller.nombre || "CotizadorPRO"}</div>
+            <div style={{ fontSize: 11, color: t.textSub }}>Estándar · {sesion.user.email}</div>
           </div>
-          <span style={{fontWeight:700,color:"white",fontSize:15,fontFamily:"'IBM Plex Mono',monospace",letterSpacing:"-0.5px"}}>CotizadorPRO</span>
-          <span style={{fontSize:10,color:"#475569",background:"#1e3a5f",padding:"2px 7px",borderRadius:4,fontFamily:"'IBM Plex Mono',monospace"}}>v2</span>
-
-          <div style={{flex:1}}/>
-
-          {/* Nav */}
-          {[
-            {id:"lista",icon:<List size={13}/>,label:"Mis Cotizaciones"},
-            {id:"cat",  icon:<Database size={13}/>,label:"Catálogos"},
-          ].map(v=>(
-            <button key={v.id} onClick={()=>{setVista(v.id);setMenuOpen(null);}} style={{
-              display:"flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:6,border:"none",cursor:"pointer",
-              background:vista===v.id?"#f97316":"transparent",
-              color:vista===v.id?"white":"#94a3b8",fontSize:12,fontWeight:vista===v.id?700:400,
-              fontFamily:"'IBM Plex Sans',sans-serif"}}>
-              {v.icon}{v.label}
-            </button>
-          ))}
-
-          <div style={{width:1,height:20,background:"#1e3a5f"}}/>
-
-          {/* Current quote context */}
-          {aq && (
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <StatusBadge status={aq.status}/>
-              <span style={{fontSize:11,color:"#475569",fontFamily:"'IBM Plex Mono',monospace"}}>{aq.folio}</span>
-              <button onClick={()=>setVista("editor")} style={{background:"#1e3a5f",border:"none",color:"#94a3b8",padding:"4px 10px",borderRadius:5,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:4}}>
-                <Edit3 size={11}/> Editar
-              </button>
-            </div>
-          )}
-
-          <button onClick={newQuote} style={S.btnO}>
-            <Plus size={14}/> Nueva Cotización
-          </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {guardando && <span style={{ fontSize: 12, color: t.textSub }}>Guardando…</span>}
+          <button onClick={cerrarSesion} style={{
+            padding: "6px 14px", borderRadius: 7, border: `1px solid ${t.border}`,
+            background: "transparent", color: t.textSub, cursor: "pointer", fontSize: 13,
+          }}>Cerrar sesión</button>
         </div>
       </header>
 
-      <div style={{maxWidth:1300,margin:"0 auto",padding:20}}>
+      {/* ── NAV ── */}
+      <nav style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "0 24px", display: "flex", gap: 4 }}>
+        {[
+          { id: "cotizar", label: "📋 Nueva Cotización" },
+          { id: "lista", label: "📁 Mis Cotizaciones" },
+          { id: "materiales", label: "🔩 Materiales" },
+          { id: "procesos", label: "⚙️ Procesos" },
+          { id: "config", label: "🎛️ Configuración" },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setPestana(tab.id)} style={{
+            padding: "14px 16px", border: "none", background: "transparent", cursor: "pointer",
+            color: pestana === tab.id ? t.accent : t.textSub,
+            borderBottom: `2px solid ${pestana === tab.id ? t.accent : "transparent"}`,
+            fontWeight: pestana === tab.id ? 700 : 400, fontSize: tamFuente,
+            fontFamily: `'${datos.fuente}', sans-serif`,
+          }}>{tab.label}</button>
+        ))}
+      </nav>
 
-        {/* ══════════════════════════════════════════════════════════════
-            LISTA DE COTIZACIONES
-        ══════════════════════════════════════════════════════════════ */}
-        {vista==="lista" && (
-          <div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div>
-                <h2 style={{margin:0,color:"#0f1923",fontSize:20,fontWeight:800,fontFamily:"'IBM Plex Mono',monospace"}}>
-                  Mis Cotizaciones
-                </h2>
-                <p style={{margin:"4px 0 0",color:"#64748b",fontSize:13}}>
-                  {quotes.length} cotización{quotes.length!==1?"es":""} guardada{quotes.length!==1?"s":""}
-                </p>
-              </div>
-              <button onClick={newQuote} style={S.btnO}><Plus size={14}/> Nueva Cotización</button>
-            </div>
+      {/* ── CONTENIDO ── */}
+      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
+        {pestana === "cotizar" && <PestanaCotizar datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana === "lista" && <PestanaLista datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana === "materiales" && <PestanaMateriales datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana === "procesos" && <PestanaProcesos datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana === "config" && <PestanaConfig datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+      </main>
+    </div>
+  );
+}
 
-            {/* Status summary pills */}
-            {quotes.length>0 && (
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}}>
-                {Object.entries(STATUS).map(([k,v])=>{
-                  const cnt=quotes.filter(q=>q.status===k).length;
-                  if(!cnt) return null;
-                  return(
-                    <span key={k} style={{padding:"4px 12px",borderRadius:20,background:v.bg,color:v.color,fontSize:12,fontWeight:600}}>
-                      {v.label}: {cnt}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+// ═══════════════════════════════════════════════════════════════════════════════
+// PESTAÑA: NUEVA COTIZACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+function PestanaCotizar({ datos, actualizarDatos, t, tamFuente }) {
+  const [cliente, setCliente] = useState("");
+  const [folio, setFolio] = useState("COT-" + String(Date.now()).slice(-5));
+  const [descripcion, setDescripcion] = useState("");
+  const [lineas, setLineas] = useState([nuevaLinea()]);
+  const [extras, setExtras] = useState(0);
+  const [nota, setNota] = useState("");
 
-            {quotes.length===0 ? (
-              <div style={{textAlign:"center",padding:"80px 20px",color:"#94a3b8"}}>
-                <Calculator size={48} style={{opacity:0.2,marginBottom:16}}/>
-                <p style={{fontSize:16,margin:0,fontWeight:500}}>No hay cotizaciones aún.</p>
-                <p style={{fontSize:13,margin:"8px 0 20px"}}>Crea tu primera cotización para comenzar.</p>
-                <button onClick={newQuote} style={S.btnO}><Plus size={14}/> Crear Primera Cotización</button>
-              </div>
-            ) : (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:14}}>
-                {quotes.map(q=>{
-                  const tot=calcTotales(q,procs,mats);
-                  const st=STATUS[q.status]||STATUS.borrador;
-                  const numParts=q.partidas?.length||0;
-                  const totalPiezas=(q.partidas||[]).reduce((s,p)=>s+(p.qty||0),0);
-                  return(
-                    <div key={q.id} style={{background:"white",borderRadius:12,border:`1px solid ${q.status==="pausada"?"#fef08a":q.status==="esperando_ext"?"#ddd6fe":"#e2e8f0"}`,overflow:"hidden",transition:"box-shadow 0.15s",cursor:"default"}}
-                      onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.08)"}
-                      onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+  function nuevaLinea() {
+    return { id: Date.now() + Math.random(), proceso: "", material: "", kg: 0, horas: 0 };
+  }
 
-                      {/* Card header */}
-                      <div style={{padding:"14px 16px",borderBottom:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                            <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:12,fontWeight:700,color:"#0f1923"}}>{q.folio}</span>
-                            <StatusBadge status={q.status}/>
-                            {q.partidas?.some(p=>p.prioridad==="urgente") && (
-                              <span style={{fontSize:10,fontWeight:700,color:"#dc2626",background:"#fee2e2",padding:"1px 7px",borderRadius:10}}>⚡ URGENTE</span>
-                            )}
-                          </div>
-                          <div style={{fontSize:14,fontWeight:600,color:"#0f1923",marginTop:6}}>
-                            {q.cliente.empresa||"Sin cliente"}
-                          </div>
-                          {q.cliente.nombre && <div style={{fontSize:12,color:"#64748b"}}>{q.cliente.nombre}</div>}
-                        </div>
+  const { pctGD, pctSGV, pctMargen } = datos.config;
 
-                        {/* Context menu */}
-                        <div style={{position:"relative"}} onClick={e=>e.stopPropagation()}>
-                          <button onClick={()=>setMenuOpen(menuOpen===q.id?null:q.id)}
-                            style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",padding:"4px 6px",borderRadius:5}}>
-                            <MoreHorizontal size={16}/>
-                          </button>
-                          {menuOpen===q.id && (
-                            <div style={{position:"absolute",right:0,top:"100%",background:"white",borderRadius:8,border:"1px solid #e2e8f0",boxShadow:"0 8px 24px rgba(0,0,0,0.12)",padding:"4px 0",minWidth:170,zIndex:100}}>
-                              {[
-                                {icon:<Edit3 size={13}/>,label:"Editar",action:()=>openQuote(q.id)},
-                                {icon:<Copy size={13}/>,label:"Duplicar",action:()=>dupQuote(q.id)},
-                                {icon:<FileText size={13}/>,label:"Vista Cliente",action:()=>{setActiveId(q.id);setVista("cliente");setMenuOpen(null);}},
-                                null, // divider
-                                {icon:<Pause size={13}/>,label:"Pausar",action:()=>{setActiveId(q.id);setPauseDlg(true);setMenuOpen(null);}},
-                                {icon:<Play size={13}/>,label:"Reanudar",action:()=>{setStatus(q.id,"en_proceso");setMenuOpen(null);}},
-                                null,
-                                {icon:<Trash2 size={13}/>,label:"Eliminar",action:()=>delQuote(q.id),danger:true},
-                              ].map((item,i)=>item===null?(
-                                <div key={i} style={{height:1,background:"#f1f5f9",margin:"3px 0"}}/>
-                              ):(
-                                <button key={i} onClick={item.action}
-                                  style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:item.danger?"#ef4444":"#374151",textAlign:"left",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                                  {item.icon}{item.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+  // Calcular totales
+  let totalLabor = 0, totalMaterial = 0;
+  const lineasCalc = lineas.map(l => {
+    const proc = datos.procesos.find(p => p.nombre === l.proceso);
+    const mat = datos.materiales.find(m => m.nombre === l.material);
+    const labor = (proc?.tarifa || 0) * (l.horas || 0);
+    const material = (mat?.precio || 0) * (l.kg || 0);
+    totalLabor += labor;
+    totalMaterial += material;
+    return { ...l, labor, material, subtotal: labor + material };
+  });
 
-                      {/* Card body */}
-                      <div style={{padding:"12px 16px"}}>
-                        {/* Pause note */}
-                        {q.pausaNota && (
-                          <div style={{fontSize:11,color:st.color,background:st.bg,padding:"6px 10px",borderRadius:6,marginBottom:10,display:"flex",gap:6,alignItems:"flex-start"}}>
-                            <AlertTriangle size={11} style={{flexShrink:0,marginTop:1}}/> {q.pausaNota}
-                          </div>
-                        )}
+  const res = calcular(totalLabor, totalMaterial, Number(extras) || 0, pctGD, pctSGV, pctMargen);
 
-                        {/* Partidas summary */}
-                        <div style={{display:"flex",gap:16,marginBottom:10,fontSize:12,color:"#64748b"}}>
-                          <span><Layers size={12} style={{verticalAlign:"middle",marginRight:3}}/>{numParts} partida{numParts!==1?"s":""}</span>
-                          <span><Package size={12} style={{verticalAlign:"middle",marginRight:3}}/>{totalPiezas} pieza{totalPiezas!==1?"s":""}</span>
-                          <span><Clock size={12} style={{verticalAlign:"middle",marginRight:3}}/>{q.fecha}</span>
-                        </div>
+  function agregarLinea() { setLineas(p => [...p, nuevaLinea()]); }
+  function eliminarLinea(id) { setLineas(p => p.filter(l => l.id !== id)); }
+  function cambiarLinea(id, campo, valor) { setLineas(p => p.map(l => l.id === id ? { ...l, [campo]: valor } : l)); }
 
-                        {/* Partidas list */}
-                        <div style={{marginBottom:12}}>
-                          {(q.partidas||[]).map((p,i)=>{
-                            const pc=tot.parts[i]?.calc;
-                            return(
-                              <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid #f8fafc",fontSize:12}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                  {p.prioridad==="urgente" && <span style={{color:"#dc2626",fontSize:10}}>⚡</span>}
-                                  <span style={{color:"#374151",fontWeight:500}}>{p.nombre}</span>
-                                  <span style={{color:"#94a3b8"}}>×{p.qty} {p.unidad}</span>
-                                </div>
-                                <span style={{fontFamily:"'IBM Plex Mono',monospace",fontWeight:600,color:"#0f1923",fontSize:12}}>
-                                  {pc ? mxn(pc.venta) : "—"}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+  function guardarCotizacion() {
+    const nueva = {
+      id: Date.now(),
+      folio, cliente, descripcion, fecha: new Date().toLocaleDateString("es-MX"),
+      lineas: lineasCalc, extras: Number(extras) || 0, nota,
+      precioVenta: res.precioVenta, utilidad: res.utilidad, margenReal: res.margenReal,
+      config: { pctGD, pctSGV, pctMargen },
+    };
+    const nuevasCots = [nueva, ...(datos.cotizaciones || [])];
+    actualizarDatos({ cotizaciones: nuevasCots });
+    setFolio("COT-" + String(Date.now()).slice(-5));
+    setCliente(""); setDescripcion(""); setLineas([nuevaLinea()]); setExtras(0); setNota("");
+    alert("✅ Cotización guardada correctamente.");
+  }
 
-                        {/* Total + actions */}
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:"1px solid #f1f5f9"}}>
-                          <div>
-                            <div style={{fontSize:10,color:"#94a3b8",fontFamily:"'IBM Plex Mono',monospace"}}>TOTAL</div>
-                            <div style={{fontSize:18,fontWeight:800,color:"#0f1923",fontFamily:"'IBM Plex Mono',monospace"}}>{mxn(tot.totalVenta)}</div>
-                          </div>
-                          <button onClick={()=>openQuote(q.id)} style={S.btnO}>
-                            Abrir <ChevronRight size={14}/>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+  const card = { background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 20, marginBottom: 20 };
+  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
+  const sel = { ...inp };
+  const label = { fontSize: tamFuente - 1, color: t.textSub, marginBottom: 5, display: "block" };
 
-        {/* ══════════════════════════════════════════════════════════════
-            EDITOR DE COTIZACIÓN
-        ══════════════════════════════════════════════════════════════ */}
-        {vista==="editor" && aq && (
-          <div>
-            {/* Editor top bar */}
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-              <button onClick={()=>setVista("lista")} style={S.btnG}><List size={13}/> Todas</button>
-              <ChevronRight size={14} color="#94a3b8"/>
-              <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:13,fontWeight:700,color:"#0f1923"}}>{aq.folio}</span>
-              <StatusBadge status={aq.status} size="md"/>
-              {aq.pausaNota && <span style={{fontSize:11,color:"#d97706",background:"#fffbeb",padding:"3px 10px",borderRadius:20}}>📌 {aq.pausaNota}</span>}
-
-              <div style={{flex:1}}/>
-
-              {/* Status actions */}
-              {["pausada","esperando_ext"].includes(aq.status) ? (
-                <button onClick={()=>setStatus(activeId,"en_proceso")} style={{...S.btnG,borderColor:"#3b82f6",color:"#2563eb"}}>
-                  <Play size={13}/> Reanudar
-                </button>
-              ) : (
-                <button onClick={()=>setPauseDlg(true)} style={S.btnG}>
-                  <Pause size={13}/> Pausar
-                </button>
-              )}
-
-              {/* Status selector */}
-              <select value={aq.status} onChange={e=>setStatus(activeId,e.target.value)}
-                style={{...S.inp,width:"auto",padding:"6px 10px",fontSize:12,cursor:"pointer"}}>
-                {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-              </select>
-
-              <button onClick={()=>setVista("cliente")} style={S.btnG}><FileText size={13}/> Vista Cliente</button>
-            </div>
-
-            {/* Layout: form + resumen */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 290px",gap:18,alignItems:"start"}}>
-
-              {/* LEFT PANEL */}
-              <div>
-                {/* PARTIDAS TABS */}
-                <div style={{background:"white",borderRadius:10,border:"1px solid #e2e8f0",marginBottom:14,padding:4,display:"flex",alignItems:"center",gap:2,flexWrap:"wrap"}}>
-                  {/* Datos tab */}
-                  <button onClick={()=>{setTab("datos");}} style={{
-                    padding:"7px 12px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,
-                    background:tab==="datos"&&!["labor","mats","extras"].includes(tab) || tab==="datos"?"#0f1923":"transparent",
-                    color:tab==="datos"?"white":"#64748b",whiteSpace:"nowrap",
-                    fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                    📋 Datos
-                  </button>
-
-                  <div style={{width:1,height:20,background:"#e2e8f0",margin:"0 2px"}}/>
-
-                  {/* Partida tabs */}
-                  {aq.partidas.map((p,i)=>(
-                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:1}}>
-                      <button onClick={()=>{setPidx(i);setTab("labor");}} style={{
-                        padding:"7px 12px",borderRadius:"7px 0 0 7px",border:"none",cursor:"pointer",
-                        fontSize:12,fontWeight:600,whiteSpace:"nowrap",
-                        background:pidx===i&&["labor","mats","extras"].includes(tab)?"#1e3a5f":"transparent",
-                        color:pidx===i&&["labor","mats","extras"].includes(tab)?"white":"#374151",
-                        fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                        {p.prioridad==="urgente"?"⚡":"🔩"} {p.nombre}
-                        {p.qty>1 && <span style={{fontSize:10,color:"#94a3b8",marginLeft:4}}>×{p.qty}</span>}
-                      </button>
-                      {aq.partidas.length>1 && (
-                        <button onClick={()=>removePartida(i)}
-                          style={{padding:"7px 5px",borderRadius:"0 7px 7px 0",border:"none",cursor:"pointer",background:pidx===i&&["labor","mats","extras"].includes(tab)?"#1e3a5f":"transparent",color:"#94a3b8"}}>
-                          <X size={11}/>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  <button onClick={addPartida}
-                    style={{padding:"7px 10px",borderRadius:7,border:"1px dashed #d1d5db",background:"transparent",cursor:"pointer",color:"#94a3b8",display:"flex",alignItems:"center",gap:4,fontSize:12}}>
-                    <Plus size={12}/> Pieza
-                  </button>
-
-                  <div style={{flex:1}}/>
-
-                  {/* Config tab */}
-                  <button onClick={()=>setTab("config")} style={{
-                    padding:"7px 10px",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,
-                    background:tab==="config"?"#0f1923":"transparent",color:tab==="config"?"white":"#94a3b8",
-                    fontFamily:"'IBM Plex Sans',sans-serif"}}>⚙</button>
-                </div>
-
-                <div style={{background:"white",borderRadius:12,border:"1px solid #e2e8f0",padding:22}}>
-
-                  {/* ── DATOS ── */}
-                  {tab==="datos" && (
-                    <div>
-                      <h3 style={{margin:"0 0 18px",color:"#0f1923",fontSize:15,fontWeight:700}}>Datos del Proyecto</h3>
-                      <label style={S.lbl}>Empresa / Cliente</label>
-                      <input style={{...S.inp,marginBottom:12}} placeholder="Nombre de la empresa"
-                        value={aq.cliente.empresa} onChange={e=>setQField("cliente.empresa",e.target.value)}/>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                        {[["cliente.nombre","Contacto","Nombre del contacto"],["cliente.ciudad","Ciudad","Reynosa, Tamps."],
-                          ["cliente.email","Email","correo@empresa.com"],["cliente.tel","Teléfono","+52 899 000 0000"]
-                        ].map(([path,label,ph])=>(
-                          <div key={path}>
-                            <label style={S.lbl}>{label}</label>
-                            <input style={S.inp} placeholder={ph}
-                              value={aq.cliente[path.split(".")[1]]}
-                              onChange={e=>setQField(path,e.target.value)}/>
-                          </div>
-                        ))}
-                      </div>
-                      <hr style={{border:"none",borderTop:"1px solid #f1f5f9",margin:"16px 0"}}/>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                        <div>
-                          <label style={S.lbl}>Tiempo de Entrega</label>
-                          <input style={S.inp} placeholder="Ej: 10 días hábiles"
-                            value={aq.cond.entrega} onChange={e=>setQField("cond.entrega",e.target.value)}/>
-                        </div>
-                        <div>
-                          <label style={S.lbl}>Validez Cotización</label>
-                          <select style={S.inp} value={aq.validez} onChange={e=>setQField("validez",parseInt(e.target.value))}>
-                            {[15,30,60,90].map(d=><option key={d} value={d}>{d} días</option>)}
-                          </select>
-                        </div>
-                        <div style={{gridColumn:"1/-1"}}>
-                          <label style={S.lbl}>Condiciones de Pago</label>
-                          <input style={S.inp} value={aq.cond.pago} onChange={e=>setQField("cond.pago",e.target.value)}/>
-                        </div>
-                        <div style={{gridColumn:"1/-1"}}>
-                          <label style={S.lbl}>Notas Generales</label>
-                          <textarea style={{...S.inp,minHeight:60,resize:"vertical"}}
-                            placeholder="Notas adicionales para la cotización…"
-                            value={aq.cond.notas} onChange={e=>setQField("cond.notas",e.target.value)}/>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── PARTIDA (LABOR / MATS / EXTRAS) ── */}
-                  {["labor","mats","extras"].includes(tab) && ap && (
-                    <div>
-                      {/* Partida header */}
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,paddingBottom:14,borderBottom:"1px solid #f1f5f9"}}>
-                        <div style={{flex:1,marginRight:16}}>
-                          <input value={ap.nombre} onChange={e=>setPField(safePidx,"nombre",e.target.value)}
-                            style={{...S.inp,fontWeight:700,fontSize:15,marginBottom:8}}/>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 80px 80px auto",gap:8,alignItems:"end"}}>
-                            <div>
-                              <label style={S.lbl}>No. Plano</label>
-                              <input style={S.inp} placeholder="DWG-001"
-                                value={ap.plano} onChange={e=>setPField(safePidx,"plano",e.target.value)}/>
-                            </div>
-                            <div>
-                              <label style={S.lbl}>Cantidad</label>
-                              <input style={{...S.inp,fontFamily:"'IBM Plex Mono',monospace"}} type="number" min="1"
-                                value={ap.qty} onChange={e=>setPField(safePidx,"qty",parseInt(e.target.value)||1)}/>
-                            </div>
-                            <div>
-                              <label style={S.lbl}>Unidad</label>
-                              <select style={S.inp} value={ap.unidad} onChange={e=>setPField(safePidx,"unidad",e.target.value)}>
-                                {["pza","set","lote","m"].map(u=><option key={u}>{u}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <label style={S.lbl}>Prioridad</label>
-                              <select style={{...S.inp,color:ap.prioridad==="urgente"?"#dc2626":"#0f1923",fontWeight:700}}
-                                value={ap.prioridad} onChange={e=>setPField(safePidx,"prioridad",e.target.value)}>
-                                <option value="normal">Normal</option>
-                                <option value="urgente">⚡ Urgente</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Sub-tabs for partida */}
-                      <div style={{display:"flex",gap:2,marginBottom:16,borderBottom:"2px solid #f1f5f9",paddingBottom:12}}>
-                        {[["labor","⚙ Labor"],["mats","📦 Materiales"],["extras","➕ Extras"]].map(([t,lbl])=>(
-                          <button key={t} onClick={()=>setTab(t)} style={{
-                            padding:"6px 14px",border:"none",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:600,
-                            background:tab===t?"#f97316":"#f8fafc",color:tab===t?"white":"#64748b",
-                            fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                            {lbl}
-                          </button>
-                        ))}
-                        <div style={{flex:1}}/>
-                      </div>
-
-                      {/* LABOR */}
-                      {tab==="labor" && (
-                        <div>
-                          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-                            <button onClick={addLabor} style={S.btnO}><Plus size={13}/> Agregar Proceso</button>
-                          </div>
-                          {ap.labor.length===0 ? (
-                            <div style={{textAlign:"center",padding:"36px",color:"#94a3b8"}}>
-                              <Clock size={32} style={{opacity:0.3,marginBottom:8}}/>
-                              <p style={{margin:0,fontSize:13}}>Sin procesos. Haz clic en "Agregar Proceso" para comenzar.</p>
-                            </div>
-                          ) : apc && apc.laborDet.map((det,li)=>{
-                            const lItem = ap.labor[li];
-                            return(
-                              <div key={lItem.id} style={{border:"1px solid #e2e8f0",borderRadius:8,padding:12,marginBottom:10,background:"#fafcff"}}>
-                                <div style={{display:"grid",gridTemplateColumns:"2fr 90px 70px 28px",gap:8,alignItems:"end"}}>
-                                  <div>
-                                    <label style={S.lbl}>Proceso</label>
-                                    <select style={S.inp} value={lItem.procId} onChange={e=>updL(lItem.id,"procId",e.target.value)}>
-                                      {procs.map(p=><option key={p.id} value={p.id}>{p.nombre} — ${p.tarifa}/hr</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={S.lbl}>Horas</label>
-                                    <input style={{...S.inp,fontFamily:"'IBM Plex Mono',monospace"}} type="number" min="0" step="0.25"
-                                      value={lItem.horas} onChange={e=>updL(lItem.id,"horas",parseFloat(e.target.value)||0)}/>
-                                  </div>
-                                  <div>
-                                    <label style={S.lbl}>Cant.</label>
-                                    <input style={{...S.inp,fontFamily:"'IBM Plex Mono',monospace"}} type="number" min="1"
-                                      value={lItem.cant} onChange={e=>updL(lItem.id,"cant",parseInt(e.target.value)||1)}/>
-                                  </div>
-                                  <button onClick={()=>delL(lItem.id)} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",padding:3,alignSelf:"center",marginTop:14}}>
-                                    <Trash2 size={14}/>
-                                  </button>
-                                </div>
-                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
-                                  <input style={{...S.inp,flex:1,marginRight:10,fontSize:12}} placeholder="Notas (tolerancias, acabado…)"
-                                    value={lItem.notas} onChange={e=>updL(lItem.id,"notas",e.target.value)}/>
-                                  <span style={{fontFamily:"'IBM Plex Mono',monospace",fontWeight:700,color:"#0f1923",whiteSpace:"nowrap"}}>{mxn(det.total)}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {ap.labor.length>0 && <div style={{textAlign:"right",borderTop:"1px solid #e2e8f0",paddingTop:10,fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>
-                            Labor: {mxn(apc?.costoLabor||0)}
-                          </div>}
-                        </div>
-                      )}
-
-                      {/* MATERIALES */}
-                      {tab==="mats" && (
-                        <div>
-                          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-                            <button onClick={addMat} style={S.btnO}><Plus size={13}/> Agregar Material</button>
-                          </div>
-                          {ap.mats.length===0 ? (
-                            <div style={{textAlign:"center",padding:"36px",color:"#94a3b8"}}>
-                              <Package size={32} style={{opacity:0.3,marginBottom:8}}/><p style={{margin:0,fontSize:13}}>Sin materiales.</p>
-                            </div>
-                          ) : apc && apc.matDet.map((det,mi)=>{
-                            const mItem=ap.mats[mi];
-                            const matRef=mats.find(x=>x.id===mItem.matId)||{};
-                            return(
-                              <div key={mItem.id} style={{border:"1px solid #e2e8f0",borderRadius:8,padding:12,marginBottom:10,background:"#fafcff"}}>
-                                <div style={{display:"grid",gridTemplateColumns:"2fr 80px 70px 90px 28px",gap:8,alignItems:"end"}}>
-                                  <div>
-                                    <label style={S.lbl}>Material</label>
-                                    <select style={S.inp} value={mItem.matId} onChange={e=>updM(mItem.id,"matId",e.target.value)}>
-                                      {mats.map(m=><option key={m.id} value={m.id}>{m.nombre} — ${m.pkKg}/kg</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={S.lbl}>Cant.</label>
-                                    <input style={{...S.inp,fontFamily:"'IBM Plex Mono',monospace"}} type="number" min="0" step="0.1"
-                                      value={mItem.cant} onChange={e=>updM(mItem.id,"cant",parseFloat(e.target.value)||0)}/>
-                                  </div>
-                                  <div>
-                                    <label style={S.lbl}>Unid.</label>
-                                    <select style={S.inp} value={mItem.unidad} onChange={e=>updM(mItem.id,"unidad",e.target.value)}>
-                                      {["kg","m","pza","m2","lt"].map(u=><option key={u}>{u}</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={S.lbl}>Precio/ud</label>
-                                    <input style={{...S.inp,fontFamily:"'IBM Plex Mono',monospace",background:mItem.precioCustom!=null?"#fffbeb":undefined}}
-                                      type="number" min="0" placeholder={String(matRef.pkKg||"cat.")}
-                                      value={mItem.precioCustom!=null?mItem.precioCustom:""}
-                                      onChange={e=>updM(mItem.id,"precioCustom",e.target.value!==""?parseFloat(e.target.value):null)}/>
-                                  </div>
-                                  <button onClick={()=>delM(mItem.id)} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",padding:3,alignSelf:"center",marginTop:14}}>
-                                    <Trash2 size={14}/>
-                                  </button>
-                                </div>
-                                <div style={{textAlign:"right",marginTop:6,fontSize:11,color:"#64748b",fontFamily:"'IBM Plex Mono',monospace"}}>
-                                  Base {mxn(det.base)} +{aq.config.mkMat}% = <strong style={{color:"#0f1923"}}>{mxn(det.conMk)}</strong>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {ap.mats.length>0 && <div style={{textAlign:"right",borderTop:"1px solid #e2e8f0",paddingTop:10,fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>
-                            Materiales: {mxn(apc?.costoMats||0)}
-                          </div>}
-                        </div>
-                      )}
-
-                      {/* EXTRAS */}
-                      {tab==="extras" && (
-                        <div>
-                          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-                            <button onClick={addExt} style={S.btnO}><Plus size={13}/> Agregar</button>
-                          </div>
-                          <p style={{margin:"0 0 14px",fontSize:12,color:"#64748b"}}>Tratamientos térmicos, recubrimientos, fletes, planos, servicios externos…</p>
-                          {ap.extras.length===0 && <p style={{textAlign:"center",color:"#94a3b8",fontSize:13}}>Sin servicios adicionales.</p>}
-                          {ap.extras.map(e=>(
-                            <div key={e.id} style={{display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
-                              <input style={{...S.inp,flex:1}} placeholder="Descripción del servicio…" value={e.desc}
-                                onChange={ev=>updE(e.id,"desc",ev.target.value)}/>
-                              <input style={{...S.inp,width:120,fontFamily:"'IBM Plex Mono',monospace"}} type="number" placeholder="Costo MXN"
-                                value={e.costo||""} onChange={ev=>updE(e.id,"costo",parseFloat(ev.target.value)||0)}/>
-                              <button onClick={()=>delE(e.id)} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",flexShrink:0}}><Trash2 size={14}/></button>
-                            </div>
-                          ))}
-                          {ap.extras.length>0 && <div style={{textAlign:"right",borderTop:"1px solid #e2e8f0",paddingTop:10,fontFamily:"'IBM Plex Mono',monospace",fontWeight:700}}>
-                            Extras: {mxn(apc?.costoExt||0)}
-                          </div>}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── CONFIG ── */}
-                  {tab==="config" && (
-                    <div>
-                      <h3 style={{margin:"0 0 18px",color:"#0f1923",fontSize:15,fontWeight:700}}>Parámetros Globales</h3>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-                        {[
-                          ["gd","Gastos Directos (%)","Overhead de operación del taller"],
-                          ["sgv","Gastos SGV (%)","Ventas, Generales y Administrativos"],
-                          ["margen","Margen de Utilidad (%)","% ganancia sobre precio de venta"],
-                          ["mkMat","Markup Material (%)","Margen adicional sobre costo de material"],
-                          ["tc","T.C. USD → MXN","Tipo de cambio del dólar"],
-                        ].map(([k,lbl,hint])=>(
-                          <div key={k}>
-                            <label style={S.lbl}>{lbl}</label>
-                            <input style={{...S.inp,fontFamily:"'IBM Plex Mono',monospace"}} type="number" min="0" step="0.5"
-                              value={aq.config[k]} onChange={e=>setQField(`config.${k}`,parseFloat(e.target.value)||0)}/>
-                            <p style={{margin:"3px 0 0",fontSize:10,color:"#94a3b8"}}>{hint}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* RIGHT: RESUMEN PANEL */}
-              <div style={{position:"sticky",top:72}}>
-                <div style={{background:"#0f1923",borderRadius:12,padding:18,color:"white"}}>
-                  <div style={{fontSize:10,letterSpacing:"0.1em",color:"#475569",fontFamily:"'IBM Plex Mono',monospace",fontWeight:700,textTransform:"uppercase",marginBottom:14}}>
-                    Resumen Interno
-                  </div>
-
-                  {/* Per-partida breakdown */}
-                  {totales?.parts.map((p,i)=>(
-                    <div key={p.id} style={{
-                      marginBottom:8,padding:"10px 12px",borderRadius:8,cursor:"pointer",
-                      background:i===safePidx?"rgba(249,115,22,0.15)":"rgba(255,255,255,0.03)",
-                      border:i===safePidx?"1px solid rgba(249,115,22,0.4)":"1px solid transparent"}}
-                      onClick={()=>{setPidx(i);setTab("labor");}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{fontSize:12,fontWeight:600,color:i===safePidx?"#fb923c":"#cbd5e1"}}>
-                          {p.prioridad==="urgente"?"⚡ ":""}{p.nombre}
-                        </span>
-                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:12,fontWeight:700,color:"white"}}>{mxn(p.calc.venta)}</span>
-                      </div>
-                      <div style={{fontSize:10,color:"#475569",marginTop:3,fontFamily:"'IBM Plex Mono',monospace"}}>
-                        ×{p.qty} {p.unidad} · {mxn(p.calc.xPza)}/u · {pct(p.calc.margenR)} margen
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Grand total */}
-                  <div style={{borderTop:"1px solid rgba(255,255,255,0.07)",paddingTop:12,marginTop:12}}>
-                    {[
-                      {l:"Subtotal empresa",v:totales?.totalEmpresa,c:"#94a3b8"},
-                      {l:"Utilidad bruta",v:totales?.totalUtilidad,c:"#34d399"},
-                    ].map(({l,v,c})=>(
-                      <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
-                        <span style={{color:"#64748b"}}>{l}</span>
-                        <span style={{color:c,fontFamily:"'IBM Plex Mono',monospace",fontWeight:600}}>{mxn(v)}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{background:"#f97316",borderRadius:10,padding:"14px 16px",marginTop:12,textAlign:"center"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:3}}>Total Cotización</div>
-                    <div style={{fontSize:24,fontWeight:800,fontFamily:"'IBM Plex Mono',monospace"}}>{mxn(totales?.totalVenta||0)}</div>
-                    {aq.partidas.length>1 && (
-                      <div style={{fontSize:11,color:"rgba(255,255,255,0.65)",marginTop:3}}>{aq.partidas.length} partidas · {(aq.partidas||[]).reduce((s,p)=>s+(p.qty||0),0)} piezas</div>
-                    )}
-                  </div>
-
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
-                    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:8,padding:10,textAlign:"center"}}>
-                      <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:18,fontWeight:700,
-                        color:(totales?.margenGlobal||0)>=20?"#34d399":(totales?.margenGlobal||0)>=10?"#fbbf24":"#f87171"}}>
-                        {pct(totales?.margenGlobal||0)}
-                      </div>
-                      <div style={{fontSize:10,color:"#475569"}}>Margen global</div>
-                    </div>
-                    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:8,padding:10,textAlign:"center"}}>
-                      <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:13,fontWeight:700,color:"#60a5fa"}}>
-                        {mxn(totales?.totalVenta||0)} <br/><span style={{fontSize:10,color:"#475569"}}>+ IVA</span>
-                      </div>
-                      <div style={{fontSize:10,color:"#475569"}}>Total + IVA: {mxn((totales?.totalVenta||0)*1.16)}</div>
-                    </div>
-                  </div>
-
-                  <button onClick={()=>setVista("cliente")} style={{width:"100%",background:"white",color:"#0f1923",border:"none",padding:"10px",borderRadius:8,fontWeight:700,cursor:"pointer",fontSize:13,marginTop:12,fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                    <FileText size={14}/> Ver para Cliente
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════
-            VISTA CLIENTE
-        ══════════════════════════════════════════════════════════════ */}
-        {vista==="cliente" && aq && (
-          <div>
-            <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:20}}>
-              <button onClick={()=>setVista(activeId?"editor":"lista")} style={S.btnG}><X size={13}/> Cerrar</button>
-              <button onClick={()=>window.print()} style={S.btnO}><Printer size={14}/> Imprimir / PDF</button>
-            </div>
-
-            <div style={{background:"white",borderRadius:12,padding:"48px 52px",border:"1px solid #e2e8f0",maxWidth:840,margin:"0 auto",boxShadow:"0 4px 24px rgba(0,0,0,0.07)"}}>
-              {/* Header */}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:36,paddingBottom:24,borderBottom:"3px solid #0f1923"}}>
-                <div>
-                  <div style={{fontSize:32,fontWeight:800,color:"#0f1923",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:"-1px"}}>COTIZACIÓN</div>
-                  <div style={{color:"#64748b",fontSize:14,marginTop:4}}>Servicios de Maquinado Industrial</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{background:"#0f1923",color:"white",padding:"6px 18px",borderRadius:6,fontSize:13,fontWeight:700,fontFamily:"'IBM Plex Mono',monospace",marginBottom:6}}>{aq.folio}</div>
-                  <div style={{fontSize:12,color:"#64748b"}}>Fecha: {aq.fecha}</div>
-                  <div style={{fontSize:12,color:"#64748b"}}>Validez: {aq.validez} días</div>
-                </div>
-              </div>
-
-              {/* Client + Conditions */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:28,marginBottom:28}}>
-                <div>
-                  <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Cliente</div>
-                  <div style={{fontWeight:700,color:"#0f1923",fontSize:16}}>{aq.cliente.empresa||"—"}</div>
-                  {aq.cliente.nombre && <div style={{color:"#475569",fontSize:13,marginTop:3}}>Attn: {aq.cliente.nombre}</div>}
-                  {aq.cliente.email  && <div style={{color:"#64748b",fontSize:12,marginTop:2}}>{aq.cliente.email}</div>}
-                  {aq.cliente.tel    && <div style={{color:"#64748b",fontSize:12}}>{aq.cliente.tel}</div>}
-                  {aq.cliente.ciudad && <div style={{color:"#64748b",fontSize:12}}>{aq.cliente.ciudad}</div>}
-                </div>
-                <div>
-                  <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Condiciones</div>
-                  <div style={{color:"#475569",fontSize:13,lineHeight:1.9}}>
-                    ⏱ Entrega: {aq.cond.entrega||"Por confirmar"}<br/>
-                    💳 Pago: {aq.cond.pago}<br/>
-                    📅 Vigencia: {aq.validez} días naturales
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-partida table */}
-              <div style={{marginBottom:28}}>
-                <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Descripción de Servicios</div>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead>
-                    <tr style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0"}}>
-                      {["#","Descripción","Cant.","Unidad","P. Unitario","Total"].map((h,i)=>(
-                        <th key={h} style={{padding:"9px 12px",textAlign:i>=4?"right":i===0||i===2?"center":"left",fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.05em"}}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {totales?.parts.map((p,i)=>(
-                      <tr key={p.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                        <td style={{padding:"14px 12px",textAlign:"center",fontFamily:"'IBM Plex Mono',monospace",fontSize:12,color:"#94a3b8"}}>{i+1}</td>
-                        <td style={{padding:"14px 12px"}}>
-                          <div style={{fontWeight:600,color:"#0f1923",fontSize:14}}>{p.nombre}</div>
-                          {p.plano && <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>Plano: {p.plano}</div>}
-                          <div style={{fontSize:11,color:"#64748b",marginTop:3}}>
-                            {[p.labor?.length>0&&`${p.labor.length} proceso(s)`,p.mats?.length>0&&"material incl.",p.extras?.length>0&&"servicios ext."].filter(Boolean).join(" · ")||"—"}
-                          </div>
-                        </td>
-                        <td style={{padding:"14px 12px",textAlign:"center",fontFamily:"'IBM Plex Mono',monospace",fontWeight:600,color:"#0f1923"}}>{p.qty}</td>
-                        <td style={{padding:"14px 12px",color:"#64748b",fontSize:13}}>{p.unidad}</td>
-                        <td style={{padding:"14px 12px",textAlign:"right",fontFamily:"'IBM Plex Mono',monospace",color:"#0f1923"}}>{mxn(p.calc.xPza)}</td>
-                        <td style={{padding:"14px 12px",textAlign:"right",fontFamily:"'IBM Plex Mono',monospace",fontWeight:700,color:"#0f1923",fontSize:15}}>{mxn(p.calc.venta)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Totals */}
-                <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
-                  <div style={{width:300,fontFamily:"'IBM Plex Mono',monospace"}}>
-                    {[
-                      {l:"Subtotal",v:totales?.totalVenta||0},
-                      {l:"IVA (16%)",v:(totales?.totalVenta||0)*0.16},
-                    ].map(({l,v})=>(
-                      <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #f1f5f9",fontSize:13,color:"#475569"}}>
-                        <span>{l}</span><span>{mxn(v)}</span>
-                      </div>
-                    ))}
-                    <div style={{display:"flex",justifyContent:"space-between",padding:"12px 16px",background:"#0f1923",color:"white",borderRadius:8,marginTop:8,fontSize:16,fontWeight:800}}>
-                      <span>TOTAL MXN</span><span>{mxn((totales?.totalVenta||0)*1.16)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {aq.cond.notas && (
-                <div style={{padding:16,background:"#f8fafc",borderRadius:8,marginBottom:24,fontSize:13,color:"#475569"}}>
-                  <strong style={{color:"#0f1923"}}>Notas: </strong>{aq.cond.notas}
-                </div>
-              )}
-
-              {/* Signatures */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:40,paddingTop:24,borderTop:"1px solid #e2e8f0"}}>
-                {["Elaboró","Autorizó / Cliente"].map(lbl=>(
-                  <div key={lbl} style={{textAlign:"center"}}>
-                    <div style={{borderBottom:"1px solid #0f1923",marginBottom:8,height:44}}/>
-                    <div style={{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.05em"}}>{lbl}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{textAlign:"center",color:"#cbd5e1",fontSize:10,marginTop:20,fontFamily:"'IBM Plex Mono',monospace"}}>
-                CotizadorPRO · Sistema de Cotización Industrial
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════
-            CATÁLOGOS
-        ══════════════════════════════════════════════════════════════ */}
-        {vista==="cat" && (
-          <div>
-            <h2 style={{margin:"0 0 20px",color:"#0f1923",fontFamily:"'IBM Plex Mono',monospace"}}>Base de Datos — Catálogos</h2>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-              {/* PROCESOS */}
-              <div style={{background:"white",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-                <div style={{padding:"14px 18px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fafcff"}}>
-                  <h3 style={{margin:0,color:"#0f1923",fontSize:14,fontWeight:700}}>⚙️ Procesos</h3>
-                  <button onClick={()=>{const id=`P${String(procs.length+1).padStart(2,"0")}`;saveProcs([...procs,{id,nombre:"Nuevo Proceso",cat:"Otro",tarifa:200}]);setEditProc(id);}} style={{...S.btnO,padding:"5px 10px",fontSize:12}}><Plus size={12}/></button>
-                </div>
-                <div style={{maxHeight:500,overflowY:"auto"}}>
-                  {procs.map(p=>(
-                    <div key={p.id} style={{padding:"10px 18px",borderBottom:"1px solid #f1f5f9"}}>
-                      {editProc===p.id ? (
-                        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                          <input style={{...S.inp,flex:"2 1 120px",fontSize:12}} value={p.nombre}
-                            onChange={e=>saveProcs(procs.map(x=>x.id===p.id?{...x,nombre:e.target.value}:x))}/>
-                          <input style={{...S.inp,flex:"1 1 80px",fontSize:12}} value={p.cat}
-                            onChange={e=>saveProcs(procs.map(x=>x.id===p.id?{...x,cat:e.target.value}:x))}/>
-                          <input style={{...S.inp,width:70,fontFamily:"'IBM Plex Mono',monospace",fontSize:12}} type="number" value={p.tarifa}
-                            onChange={e=>saveProcs(procs.map(x=>x.id===p.id?{...x,tarifa:parseFloat(e.target.value)||0}:x))}/>
-                          <button onClick={()=>setEditProc(null)} style={{background:"none",border:"none",color:"#22c55e",cursor:"pointer"}}><Save size={14}/></button>
-                        </div>
-                      ):(
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <div><span style={{fontSize:13,fontWeight:500,color:"#0f1923"}}>{p.nombre}</span><span style={{fontSize:10,color:"#94a3b8",marginLeft:6}}>{p.cat}</span></div>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <span style={{fontFamily:"'IBM Plex Mono',monospace",fontWeight:700,color:"#f97316",fontSize:13}}>${p.tarifa}/hr</span>
-                            <button onClick={()=>setEditProc(p.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",padding:2}}><Edit3 size={12}/></button>
-                            <button onClick={()=>saveProcs(procs.filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",padding:2}}><Trash2 size={12}/></button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* MATERIALES */}
-              <div style={{background:"white",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-                <div style={{padding:"14px 18px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#fafcff"}}>
-                  <h3 style={{margin:0,color:"#0f1923",fontSize:14,fontWeight:700}}>🔩 Materiales</h3>
-                  <button onClick={()=>{const id=`M${String(mats.length+1).padStart(2,"0")}`;saveMats([...mats,{id,nombre:"Nuevo Material",tipo:"Otro",spec:"",pkKg:100}]);setEditMat(id);}} style={{...S.btnO,padding:"5px 10px",fontSize:12}}><Plus size={12}/></button>
-                </div>
-                <div style={{maxHeight:500,overflowY:"auto"}}>
-                  {mats.map(m=>(
-                    <div key={m.id} style={{padding:"10px 18px",borderBottom:"1px solid #f1f5f9"}}>
-                      {editMat===m.id ? (
-                        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                          <input style={{...S.inp,flex:"2 1 110px",fontSize:12}} value={m.nombre}
-                            onChange={e=>saveMats(mats.map(x=>x.id===m.id?{...x,nombre:e.target.value}:x))}/>
-                          <input style={{...S.inp,flex:"1 1 70px",fontSize:12}} value={m.spec}
-                            onChange={e=>saveMats(mats.map(x=>x.id===m.id?{...x,spec:e.target.value}:x))}/>
-                          <input style={{...S.inp,width:70,fontFamily:"'IBM Plex Mono',monospace",fontSize:12}} type="number" value={m.pkKg}
-                            onChange={e=>saveMats(mats.map(x=>x.id===m.id?{...x,pkKg:parseFloat(e.target.value)||0}:x))}/>
-                          <button onClick={()=>setEditMat(null)} style={{background:"none",border:"none",color:"#22c55e",cursor:"pointer"}}><Save size={14}/></button>
-                        </div>
-                      ):(
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <div><span style={{fontSize:13,fontWeight:500,color:"#0f1923"}}>{m.nombre}</span><span style={{fontSize:10,color:"#94a3b8",marginLeft:6}}>{m.spec}</span></div>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{textAlign:"right"}}><div style={{fontFamily:"'IBM Plex Mono',monospace",fontWeight:700,color:"#0f1923",fontSize:12}}>${m.pkKg}/kg</div><div style={{fontSize:9,color:"#94a3b8"}}>{m.tipo}</div></div>
-                            <button onClick={()=>setEditMat(m.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",padding:2}}><Edit3 size={12}/></button>
-                            <button onClick={()=>saveMats(mats.filter(x=>x.id!==m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",padding:2}}><Trash2 size={12}/></button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
+  return (
+    <div>
+      {/* Info cliente */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 16, fontSize: tamFuente + 1 }}>📋 Datos de la Cotización</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div><label style={label}>Folio</label><input style={inp} value={folio} onChange={e => setFolio(e.target.value)} /></div>
+          <div><label style={label}>Cliente</label><input style={inp} value={cliente} onChange={e => setCliente(e.target.value)} placeholder="Nombre del cliente o empresa" /></div>
+          <div style={{ gridColumn: "1/-1" }}><label style={label}>Descripción del trabajo</label><input style={inp} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Ej: Fabricación de eje de transmisión AISI 1018" /></div>
+        </div>
       </div>
 
-      {/* ══ DIALOG: PAUSAR ══ */}
-      {pauseDlg && (
-        <div style={{position:"fixed",inset:0,background:"rgba(15,25,35,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setPauseDlg(false)}>
-          <div style={{background:"white",borderRadius:14,padding:28,width:440,maxWidth:"90vw",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={e=>e.stopPropagation()}>
-            <h3 style={{margin:"0 0 6px",color:"#0f1923",fontWeight:800}}>Pausar Cotización</h3>
-            <p style={{margin:"0 0 18px",color:"#64748b",fontSize:13}}>La cotización quedará guardada. Puedes reanudarla en cualquier momento.</p>
+      {/* Líneas */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 16, fontSize: tamFuente + 1 }}>🔩 Partidas del trabajo</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: tamFuente }}>
+            <thead>
+              <tr style={{ color: t.textSub }}>
+                {["Proceso", "Material", "Horas", "Kg / Pzas", "Labor", "Material", "Subtotal", ""].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: h === "" ? "center" : "left", fontWeight: 600, borderBottom: `1px solid ${t.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lineasCalc.map(l => (
+                <tr key={l.id}>
+                  <td style={{ padding: "8px 6px" }}>
+                    <select style={{ ...sel, minWidth: 140 }} value={l.proceso} onChange={e => cambiarLinea(l.id, "proceso", e.target.value)}>
+                      <option value="">Seleccionar…</option>
+                      {datos.procesos.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: "8px 6px" }}>
+                    <select style={{ ...sel, minWidth: 160 }} value={l.material} onChange={e => cambiarLinea(l.id, "material", e.target.value)}>
+                      <option value="">Seleccionar…</option>
+                      {datos.materiales.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: "8px 6px" }}><input type="number" style={{ ...inp, width: 70 }} value={l.horas} min={0} onChange={e => cambiarLinea(l.id, "horas", parseFloat(e.target.value) || 0)} /></td>
+                  <td style={{ padding: "8px 6px" }}><input type="number" style={{ ...inp, width: 70 }} value={l.kg} min={0} onChange={e => cambiarLinea(l.id, "kg", parseFloat(e.target.value) || 0)} /></td>
+                  <td style={{ padding: "8px 10px", color: t.textSub }}>{fmt(l.labor)}</td>
+                  <td style={{ padding: "8px 10px", color: t.textSub }}>{fmt(l.material)}</td>
+                  <td style={{ padding: "8px 10px", fontWeight: 700 }}>{fmt(l.subtotal)}</td>
+                  <td style={{ padding: "8px 6px", textAlign: "center" }}>
+                    <button onClick={() => eliminarLinea(l.id)} style={{ background: "none", border: "none", color: t.danger, cursor: "pointer", fontSize: 18 }}>×</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display: "flex", gap: 12, marginTop: 12, alignItems: "center" }}>
+          <button onClick={agregarLinea} style={{ padding: "8px 16px", borderRadius: 8, border: `1px dashed ${t.border}`, background: "transparent", color: t.accent, cursor: "pointer", fontSize: tamFuente }}>
+            + Agregar partida
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <label style={{ ...label, margin: 0 }}>Extras / Fletes:</label>
+            <input type="number" style={{ ...inp, width: 120 }} value={extras} min={0} onChange={e => setExtras(e.target.value)} />
+          </div>
+        </div>
+      </div>
 
-            <label style={S.lbl}>Estado al pausar</label>
-            <select style={{...S.inp,marginBottom:14}} value={pauseStatus} onChange={e=>setPauseStatus(e.target.value)}>
-              <option value="pausada">⏸️ Pausada — trabajo detenido temporalmente</option>
-              <option value="esperando_ext">⏳ Esperando cotización externa — falta precio de proveedor</option>
-            </select>
+      {/* Resumen */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div style={card}>
+          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: tamFuente + 1 }}>📊 Desglose de costos</div>
+          {[
+            ["Labor total", res.costoDirecto - totalMaterial],
+            ["Material total", totalMaterial],
+            ["Extras / Fletes", Number(extras) || 0],
+            ["Costo Directo", res.costoDirecto],
+            [`Gastos Directos (${pctGD}%)`, res.gastosDirectos],
+            [`Gastos SGV (${pctSGV}%)`, res.gastosSGV],
+            ["Costo Empresa", res.costoEmpresa],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}`, fontSize: tamFuente }}>
+              <span style={{ color: t.textSub }}>{k}</span>
+              <span>{fmt(v)}</span>
+            </div>
+          ))}
+        </div>
 
-            <label style={S.lbl}>Motivo / Nota (opcional)</label>
-            <textarea style={{...S.inp,minHeight:80,resize:"vertical",marginBottom:18}}
-              placeholder="Ej: 'En pausa — cliente solicitó incluir tratamiento térmico, esperando precio de taller externo'"
-              value={pauseNote} onChange={e=>setPauseNote(e.target.value)}/>
+        <div style={card}>
+          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: tamFuente + 1 }}>💰 Resultado</div>
+          <div style={{ background: t.input, borderRadius: 10, padding: 20, marginBottom: 16, textAlign: "center" }}>
+            <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>PRECIO DE VENTA</div>
+            <div style={{ fontSize: 36, fontWeight: 800, color: t.accent }}>{fmt(res.precioVenta)}</div>
+            <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>MXN</div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}` }}>
+            <span style={{ color: t.textSub }}>Utilidad</span><span style={{ color: t.success, fontWeight: 700 }}>{fmt(res.utilidad)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}` }}>
+            <span style={{ color: t.textSub }}>Margen real</span><span style={{ color: t.success, fontWeight: 700 }}>{res.margenReal.toFixed(1)}%</span>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <label style={label}>Nota para el cliente (opcional)</label>
+            <textarea style={{ ...inp, height: 70, resize: "vertical" }} value={nota} onChange={e => setNota(e.target.value)} placeholder="Ej: Tiempo de entrega 5 días hábiles" />
+          </div>
+          <button onClick={guardarCotizacion} style={{
+            width: "100%", marginTop: 16, padding: "13px 0", borderRadius: 8,
+            border: "none", background: t.accent, color: "#fff", fontWeight: 700,
+            fontSize: tamFuente + 1, cursor: "pointer",
+          }}>
+            💾 Guardar Cotización
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-            <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-              <button onClick={()=>setPauseDlg(false)} style={S.btnG}>Cancelar</button>
-              <button onClick={confirmPause} style={S.btnO}><Pause size={14}/> Confirmar Pausa</button>
+// ═══════════════════════════════════════════════════════════════════════════════
+// PESTAÑA: MIS COTIZACIONES
+// ═══════════════════════════════════════════════════════════════════════════════
+function PestanaLista({ datos, actualizarDatos, t, tamFuente }) {
+  const cots = datos.cotizaciones || [];
+
+  function eliminar(id) {
+    if (!confirm("¿Eliminar esta cotización?")) return;
+    actualizarDatos({ cotizaciones: cots.filter(c => c.id !== id) });
+  }
+
+  if (cots.length === 0) return (
+    <div style={{ textAlign: "center", padding: 60, color: t.textSub }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>📁</div>
+      <div style={{ fontSize: 18, fontWeight: 600 }}>Sin cotizaciones aún</div>
+      <div style={{ marginTop: 8, fontSize: 14 }}>Ve a "Nueva Cotización" para empezar</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>📁 Mis Cotizaciones ({cots.length})</div>
+      {cots.map(c => (
+        <div key={c.id} style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 20, marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: tamFuente + 1 }}>{c.folio} — {c.cliente || "Sin cliente"}</div>
+              <div style={{ color: t.textSub, fontSize: tamFuente - 1, marginTop: 4 }}>{c.descripcion}</div>
+              <div style={{ color: t.textSub, fontSize: tamFuente - 1, marginTop: 2 }}>📅 {c.fecha}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: t.accent }}>{fmt(c.precioVenta)}</div>
+              <div style={{ fontSize: 12, color: t.success }}>Utilidad: {fmt(c.utilidad)} · {c.margenReal?.toFixed(1)}%</div>
+              <button onClick={() => eliminar(c.id)} style={{
+                marginTop: 10, padding: "5px 12px", borderRadius: 6,
+                border: `1px solid ${t.danger}`, background: "transparent",
+                color: t.danger, cursor: "pointer", fontSize: 12,
+              }}>Eliminar</button>
             </div>
           </div>
         </div>
-      )}
+      ))}
+    </div>
+  );
+}
 
-      <style>{`
-        @keyframes iadb{0%,100%{opacity:.25}50%{opacity:1}}
-        @media print{header,nav,button,[data-noprint]{display:none!important}body{background:white!important}main{padding:0!important}}
-      `}</style>
+// ═══════════════════════════════════════════════════════════════════════════════
+// PESTAÑA: MATERIALES
+// ═══════════════════════════════════════════════════════════════════════════════
+function PestanaMateriales({ datos, actualizarDatos, t, tamFuente }) {
+  const [nuevo, setNuevo] = useState({ nombre: "", precio: "" });
+  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
+
+  function agregar() {
+    if (!nuevo.nombre || !nuevo.precio) return;
+    const lista = [...datos.materiales, { id: Date.now(), nombre: nuevo.nombre, precio: parseFloat(nuevo.precio) }];
+    actualizarDatos({ materiales: lista });
+    setNuevo({ nombre: "", precio: "" });
+  }
+
+  function eliminar(id) {
+    actualizarDatos({ materiales: datos.materiales.filter(m => m.id !== id) });
+  }
+
+  return (
+    <div style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 24 }}>
+      <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>🔩 Catálogo de Materiales</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, marginBottom: 24 }}>
+        <input style={inp} placeholder="Nombre del material" value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} />
+        <input style={inp} type="number" placeholder="Precio por kg (MXN)" value={nuevo.precio} onChange={e => setNuevo(p => ({ ...p, precio: e.target.value }))} />
+        <button onClick={agregar} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: t.accent, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+ Agregar</button>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: tamFuente }}>
+        <thead><tr style={{ color: t.textSub }}>
+          {["Material", "Precio/kg", ""].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: `1px solid ${t.border}`, fontWeight: 600 }}>{h}</th>)}
+        </tr></thead>
+        <tbody>{datos.materiales.map(m => (
+          <tr key={m.id}>
+            <td style={{ padding: "10px 12px" }}>{m.nombre}</td>
+            <td style={{ padding: "10px 12px" }}>{fmt(m.precio)}</td>
+            <td style={{ padding: "10px 12px" }}><button onClick={() => eliminar(m.id)} style={{ background: "none", border: "none", color: t.danger, cursor: "pointer" }}>Eliminar</button></td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PESTAÑA: PROCESOS
+// ═══════════════════════════════════════════════════════════════════════════════
+function PestanaProcesos({ datos, actualizarDatos, t, tamFuente }) {
+  const [nuevo, setNuevo] = useState({ nombre: "", tarifa: "" });
+  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
+
+  function agregar() {
+    if (!nuevo.nombre || !nuevo.tarifa) return;
+    const lista = [...datos.procesos, { id: Date.now(), nombre: nuevo.nombre, tarifa: parseFloat(nuevo.tarifa) }];
+    actualizarDatos({ procesos: lista });
+    setNuevo({ nombre: "", tarifa: "" });
+  }
+
+  function eliminar(id) {
+    actualizarDatos({ procesos: datos.procesos.filter(p => p.id !== id) });
+  }
+
+  return (
+    <div style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 24 }}>
+      <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>⚙️ Catálogo de Procesos</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, marginBottom: 24 }}>
+        <input style={inp} placeholder="Nombre del proceso" value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} />
+        <input style={inp} type="number" placeholder="Tarifa por hora (MXN)" value={nuevo.tarifa} onChange={e => setNuevo(p => ({ ...p, tarifa: e.target.value }))} />
+        <button onClick={agregar} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: t.accent, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+ Agregar</button>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: tamFuente }}>
+        <thead><tr style={{ color: t.textSub }}>
+          {["Proceso / Máquina", "Tarifa/hr", ""].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: `1px solid ${t.border}`, fontWeight: 600 }}>{h}</th>)}
+        </tr></thead>
+        <tbody>{datos.procesos.map(p => (
+          <tr key={p.id}>
+            <td style={{ padding: "10px 12px" }}>{p.nombre}</td>
+            <td style={{ padding: "10px 12px" }}>{fmt(p.tarifa)}/hr</td>
+            <td style={{ padding: "10px 12px" }}><button onClick={() => eliminar(p.id)} style={{ background: "none", border: "none", color: t.danger, cursor: "pointer" }}>Eliminar</button></td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PESTAÑA: CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
+function PestanaConfig({ datos, actualizarDatos, t, tamFuente }) {
+  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
+  const label = { fontSize: tamFuente - 1, color: t.textSub, marginBottom: 6, display: "block" };
+  const card = { background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 24, marginBottom: 20 };
+
+  function subirLogo(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => actualizarDatos({ taller: { ...datos.taller, logo: ev.target.result } });
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div>
+      {/* Datos del taller */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>🏭 Datos del Taller</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div><label style={label}>Nombre del taller</label><input style={inp} value={datos.taller.nombre} onChange={e => actualizarDatos({ taller: { ...datos.taller, nombre: e.target.value } })} /></div>
+          <div><label style={label}>Teléfono</label><input style={inp} value={datos.taller.telefono} onChange={e => actualizarDatos({ taller: { ...datos.taller, telefono: e.target.value } })} /></div>
+          <div><label style={label}>Email</label><input style={inp} value={datos.taller.email} onChange={e => actualizarDatos({ taller: { ...datos.taller, email: e.target.value } })} /></div>
+          <div>
+            <label style={label}>Logo del taller</label>
+            <input type="file" accept="image/*" onChange={subirLogo} style={{ ...inp, padding: "6px 12px" }} />
+            {datos.taller.logo && <img src={datos.taller.logo} alt="logo" style={{ marginTop: 10, height: 50, borderRadius: 6 }} />}
+          </div>
+        </div>
+      </div>
+
+      {/* Porcentajes */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>📊 Porcentajes de la Fórmula</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          {[
+            { key: "pctGD", label: "Gastos Directos %", default: 35 },
+            { key: "pctSGV", label: "Gastos SGV %", default: 15 },
+            { key: "pctMargen", label: "Margen de Utilidad %", default: 25 },
+          ].map(({ key, label: lbl }) => (
+            <div key={key}>
+              <label style={label}>{lbl}</label>
+              <input type="number" style={inp} min={0} max={100}
+                value={datos.config[key]}
+                onChange={e => actualizarDatos({ config: { ...datos.config, [key]: parseFloat(e.target.value) || 0 } })}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Visual */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>🎨 Apariencia</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+          <div>
+            <label style={label}>Tema de color</label>
+            <select style={inp} value={datos.tema} onChange={e => actualizarDatos({ tema: e.target.value })}>
+              <option value="oscuro">🌑 Oscuro Industrial</option>
+              <option value="claro">☀️ Claro Profesional</option>
+              <option value="marino">🌊 Azul Marino</option>
+            </select>
+          </div>
+          <div>
+            <label style={label}>Fuente</label>
+            <select style={inp} value={datos.fuente} onChange={e => actualizarDatos({ fuente: e.target.value })}>
+              <option>IBM Plex Sans</option>
+              <option>Inter</option>
+              <option>Roboto</option>
+            </select>
+          </div>
+          <div>
+            <label style={label}>Tamaño de texto</label>
+            <select style={inp} value={datos.tamTexto} onChange={e => actualizarDatos({ tamTexto: e.target.value })}>
+              <option value="chico">Chico</option>
+              <option value="normal">Normal</option>
+              <option value="grande">Grande</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
