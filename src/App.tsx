@@ -405,7 +405,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
   const [tc,              setTc]              = useState(cot?.config?.tc || datos.config?.tc || 17.5);
   const [idioma,          setIdioma]          = useState(cot?.config?.idioma || datos.config?.idioma || "es");
 
-  function nuevaLinea() { return { id: Date.now() + Math.random(), proceso:"", material:"", kg:0, horas:0 }; }
+  function nuevaLinea() { return { id: Date.now() + Math.random(), nombrePartida:"", proceso:"", material:"", kg:0, horas:0 }; }
 
   const { pctGD, pctSGV, pctMargen } = datos.config;
   let totalLabor = 0, totalMaterial = 0;
@@ -618,13 +618,19 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
 
       {/* Partidas */}
       <div style={card}>
-        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>🔩 Partidas del trabajo</div>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:4 }}>🔩 Partidas del trabajo</div>
+        <div style={{ fontSize:11, color:t.textSub, marginBottom:12 }}>
+          El <strong>Nombre de partida</strong> es lo que verá el cliente en el PDF. Los procesos y materiales son uso interno del taller.
+        </div>
         <div style={{ overflowX:"auto" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:tamFuente }}>
             <thead>
               <tr style={{ color:t.textSub }}>
-                {["Proceso","Material","Horas","Kg/Pzas","Labor","Material","Subtotal",""].map(h=>(
-                  <th key={h} style={{ padding:"8px 10px", textAlign:"left", fontWeight:600, borderBottom:`1px solid ${t.border}` }}>{h}</th>
+                {["Nombre de partida (PDF cliente)","Proceso (interno)","Material (interno)","Horas","Kg/Pzas","Labor","Mat.","Subtotal",""].map((h,i)=>(
+                  <th key={i} style={{ padding:"8px 10px", textAlign:"left", fontWeight:600, borderBottom:`1px solid ${t.border}`,
+                    color: i===0 ? t.accent : t.textSub,
+                    fontSize: i===0 ? tamFuente : tamFuente-1
+                  }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -632,21 +638,26 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
               {lineasCalc.map((l: any) => (
                 <tr key={l.id}>
                   <td style={{ padding:"8px 6px" }}>
-                    <select style={{ ...inp, minWidth:140 }} value={l.proceso} onChange={e=>cambiarLinea(l.id,"proceso",e.target.value)}>
+                    <input style={{ ...inp, minWidth:160, fontWeight:600, borderColor:t.accent }}
+                      value={l.nombrePartida||""} placeholder="Ej: Fabricación de perno"
+                      onChange={e=>cambiarLinea(l.id,"nombrePartida",e.target.value)}/>
+                  </td>
+                  <td style={{ padding:"8px 6px" }}>
+                    <select style={{ ...inp, minWidth:130 }} value={l.proceso} onChange={e=>cambiarLinea(l.id,"proceso",e.target.value)}>
                       <option value="">Seleccionar…</option>
                       {datos.procesos.map((p: any)=><option key={p.id} value={p.nombre}>{p.nombre}</option>)}
                     </select>
                   </td>
                   <td style={{ padding:"8px 6px" }}>
-                    <select style={{ ...inp, minWidth:160 }} value={l.material} onChange={e=>cambiarLinea(l.id,"material",e.target.value)}>
+                    <select style={{ ...inp, minWidth:140 }} value={l.material} onChange={e=>cambiarLinea(l.id,"material",e.target.value)}>
                       <option value="">Seleccionar…</option>
                       {datos.materiales.map((m: any)=><option key={m.id} value={m.nombre}>{m.nombre}</option>)}
                     </select>
                   </td>
-                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:70 }} value={l.horas} min={0} onChange={e=>cambiarLinea(l.id,"horas",parseFloat(e.target.value)||0)}/></td>
-                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:70 }} value={l.kg} min={0} onChange={e=>cambiarLinea(l.id,"kg",parseFloat(e.target.value)||0)}/></td>
-                  <td style={{ padding:"8px 10px", color:t.textSub }}>{fmtMXN(l.labor)}</td>
-                  <td style={{ padding:"8px 10px", color:t.textSub }}>{fmtMXN(l.material)}</td>
+                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:65 }} value={l.horas} min={0} onChange={e=>cambiarLinea(l.id,"horas",parseFloat(e.target.value)||0)}/></td>
+                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:65 }} value={l.kg} min={0} onChange={e=>cambiarLinea(l.id,"kg",parseFloat(e.target.value)||0)}/></td>
+                  <td style={{ padding:"8px 10px", color:t.textSub, fontSize:tamFuente-1 }}>{fmtMXN(l.labor)}</td>
+                  <td style={{ padding:"8px 10px", color:t.textSub, fontSize:tamFuente-1 }}>{fmtMXN(l.material)}</td>
                   <td style={{ padding:"8px 10px", fontWeight:700 }}>{fmtMXN(l.subtotal)}</td>
                   <td style={{ padding:"8px 6px" }}><button onClick={()=>eliminarLinea(l.id)} style={{ background:"none", border:"none", color:t.danger, cursor:"pointer", fontSize:18 }}>×</button></td>
                 </tr>
@@ -901,35 +912,44 @@ function VistaPDF({ datos, lineasCalc, res, extras, folio, descripcion, nota, cl
         {/* DESCRIPCIÓN */}
         {descripcion && <div style={{ background: plantilla==="industrial"?"#0D1B2A":"#f8fafc", borderRadius:8, padding:"10px 14px", marginBottom:20, fontSize:13, color:"#64748b" }}><strong>Trabajo: </strong>{descripcion}</div>}
 
-        {/* TABLA */}
+        {/* TABLA — solo lo que ve el cliente */}
         <table style={estilosComunes.tabla}>
           <thead>
-            <tr style={{ borderBottom: plantilla==="industrial"?"2px solid #f97316":"2px solid #e2e8f0" }}>
-              {["#", txPDF.descripcion, txPDF.cant, "Hrs", txPDF.pUnitario, txPDF.total].map((h,i)=>(
-                <th key={i} style={{ ...estilosComunes.th, textAlign: i>=4?"right" as const: i===0||i===2?"center" as const:"left" as const, color: plantilla==="industrial"?"#f97316":"#64748b" }}>{h}</th>
+            <tr style={{ borderBottom: plantilla==="industrial"?"2px solid #f97316":"2px solid #1a1d27" }}>
+              {["#", txPDF.descripcion, txPDF.cant, txPDF.unidad, txPDF.pUnitario, txPDF.total].map((h,i)=>(
+                <th key={i} style={{ ...estilosComunes.th,
+                  textAlign: i>=4?"right" as const: i===0||i===2?"center" as const:"left" as const,
+                  color: plantilla==="industrial"?"#f97316":"#5a6278"
+                }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {lineasCalc.map((l: any, i: number) => (
-              <tr key={l.id||i} style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #f1f5f9", background: i%2===0&&plantilla!=="industrial"?"#f8fafc":"transparent" }}>
-                <td style={{ ...estilosComunes.td, textAlign:"center" as const, color:"#94a3b8" }}>{i+1}</td>
-                <td style={estilosComunes.td}>
-                  <div style={{ fontWeight:600 }}>{l.proceso||"—"}</div>
-                  {l.material && <div style={{ fontSize:11, color:"#94a3b8" }}>{l.material}{l.kg?` · ${l.kg} kg`:""}</div>}
-                </td>
-                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>1</td>
-                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>{l.horas}h</td>
-                <td style={{ ...estilosComunes.td, textAlign:"right" as const, color:"#64748b" }}>{fmt2(l.subtotal)}</td>
-                <td style={{ ...estilosComunes.td, textAlign:"right" as const, fontWeight:700 }}>{fmt2(l.subtotal)}</td>
-              </tr>
-            ))}
+            {lineasCalc.map((l: any, i: number) => {
+              // Precio por pieza = subtotal de esta partida (ya incluye labor + material)
+              // El precio al cliente es la parte proporcional del precio de venta total
+              const pesoPartida = res.precioVenta > 0 ? l.subtotal / (res.costoDirecto||1) : 0;
+              const precioClientePartida = res.precioVenta * pesoPartida;
+              const nombreMostrar = l.nombrePartida || l.proceso || `Partida ${i+1}`;
+              return (
+                <tr key={l.id||i} style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #e8ebf0", background: i%2===0&&plantilla!=="industrial"?"#f7f8fa":"transparent" }}>
+                  <td style={{ ...estilosComunes.td, textAlign:"center" as const, color:"#94a3b8", fontWeight:600 }}>{i+1}</td>
+                  <td style={estilosComunes.td}>
+                    <div style={{ fontWeight:600, fontSize:14 }}>{nombreMostrar}</div>
+                  </td>
+                  <td style={{ ...estilosComunes.td, textAlign:"center" as const, fontWeight:600 }}>1</td>
+                  <td style={{ ...estilosComunes.td, color:"#64748b" }}>pza</td>
+                  <td style={{ ...estilosComunes.td, textAlign:"right" as const, color:"#5a6278" }}>{fmt2(precioClientePartida)}</td>
+                  <td style={{ ...estilosComunes.td, textAlign:"right" as const, fontWeight:700, fontSize:14 }}>{fmt2(precioClientePartida)}</td>
+                </tr>
+              );
+            })}
             {extras > 0 && (
-              <tr style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #f1f5f9" }}>
+              <tr style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #e8ebf0" }}>
                 <td style={{ ...estilosComunes.td, textAlign:"center" as const, color:"#94a3b8" }}>+</td>
-                <td style={estilosComunes.td}><div style={{ fontWeight:600 }}>Extras / Fletes</div></td>
+                <td style={estilosComunes.td}><div style={{ fontWeight:600 }}>Fletes / Servicios adicionales</div></td>
                 <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>1</td>
-                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>—</td>
+                <td style={{ ...estilosComunes.td, color:"#64748b" }}>—</td>
                 <td style={{ ...estilosComunes.td, textAlign:"right" as const }}>{fmt2(extras)}</td>
                 <td style={{ ...estilosComunes.td, textAlign:"right" as const, fontWeight:700 }}>{fmt2(extras)}</td>
               </tr>
