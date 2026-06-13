@@ -75,7 +75,33 @@ function convertirMoneda(mxnAmount: number, monedaId: string, tc: number) {
   return usd * (tasasVsUSD[monedaId] || 1);
 }
 
-// ─── TEMAS ────────────────────────────────────────────────────────────────────
+// ─── FOLIO CONSECUTIVO ───────────────────────────────────────────────────────
+function generarFolio(config: any, cotizaciones: any[]) {
+  const anio    = new Date().getFullYear();
+  const prefix  = (config?.folioPrefix || "COT").toUpperCase().replace(/\s/g,"");
+  // Buscar el número más alto usado este año para no retroceder aunque se borren cots
+  let siguiente = config?.folioSiguiente || 1;
+  const patronAnio = new RegExp(`^${prefix}-${anio}-(\\d+)$`);
+  cotizaciones.forEach((c: any) => {
+    const m = (c.folio||"").match(patronAnio);
+    if (m) {
+      const n = parseInt(m[1]);
+      if (n >= siguiente) siguiente = n + 1;
+    }
+  });
+  return `${prefix}-${anio}-${String(siguiente).padStart(4,"0")}`;
+}
+
+// ─── TIPO DE CAMBIO AUTOMÁTICO (USD → MXN vía API pública) ───────────────────
+async function fetchTipoCambio(): Promise<number> {
+  try {
+    const res  = await fetch("https://api.frankfurter.app/latest?from=USD&to=MXN");
+    const data = await res.json();
+    return data?.rates?.MXN || 0;
+  } catch { return 0; }
+}
+
+
 const TEMAS: Record<string, Record<string, string>> = {
   oscuro: {
     bg:"#0f1117", card:"#1a1d27", border:"#2a2d3e",
@@ -106,7 +132,7 @@ const DATOS_INICIALES = {
     nombre:"", telefono:"", email:"", logo:"",
     rfc:"", razonSocial:"", direccionFiscal:"",
   },
-  config: { pctGD:35, pctSGV:15, pctMargen:25, tc:17.5, moneda:"MXN", idioma:"es" },
+  config: { pctGD:35, pctSGV:15, pctMargen:25, tc:17.5, moneda:"MXN", idioma:"es", folioPrefix:"COT", folioSiguiente:1 },
   tema:"oscuro", fuente:"IBM Plex Sans", tamTexto:"normal", plantillaPDF:"formal",
   materiales: [
     { id:1, nombre:"Acero 1018",           precio:45  },
@@ -339,7 +365,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx }: any) {
   const [clienteRFC,      setClienteRFC]      = useState("");
   const [clienteRazon,    setClienteRazon]    = useState("");
   const [clienteDirFiscal,setClienteDirFiscal]= useState("");
-  const [folio,           setFolio]           = useState("COT-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*9000)+1000));
+  const [folio,           setFolio]           = useState(() => generarFolio(datos.config, datos.cotizaciones||[]));
   const [descripcion,     setDescripcion]     = useState("");
   const [lineas,          setLineas]          = useState([nuevaLinea()]);
   const [extras,          setExtras]          = useState(0);
@@ -411,8 +437,17 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx }: any) {
       config: { pctGD, pctSGV, pctMargen, moneda, tc, idioma },
       precioVenta: res.precioVenta, utilidad: res.utilidad, margenReal: res.margenReal,
     };
-    actualizarDatos({ cotizaciones: [nueva, ...(datos.cotizaciones||[])] });
-    setFolio("COT-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*9000)+1000));
+    // Calcular el número que se usó y avanzar el contador
+    const anio    = new Date().getFullYear();
+    const prefix  = (datos.config?.folioPrefix||"COT").toUpperCase();
+    const patronAnio = new RegExp(`^${prefix}-${anio}-(\\d+)$`);
+    const m = folio.match(patronAnio);
+    const numUsado = m ? parseInt(m[1]) : (datos.config?.folioSiguiente||1);
+    const nuevoSiguiente = numUsado + 1;
+    actualizarDatos({ cotizaciones: [nueva, ...(datos.cotizaciones||[])], config: { ...datos.config, folioSiguiente: nuevoSiguiente } });
+    // Generar siguiente folio ya con el contador actualizado
+    const configActualizado = { ...datos.config, folioSiguiente: nuevoSiguiente };
+    setFolio(generarFolio(configActualizado, [nueva, ...(datos.cotizaciones||[])]));
     setClienteNombre(""); setClienteEmpresa(""); setClienteEmail(""); setClienteTel(""); setClienteCiudad("");
     setClienteRFC(""); setClienteRazon(""); setClienteDirFiscal("");
     setDescripcion(""); setLineas([nuevaLinea()]); setExtras(0); setNota(""); setEntrega(""); setPago("Anticipo 50% / Liquidación a entrega");
@@ -1055,6 +1090,40 @@ function PestanaProcesos({ datos, actualizarDatos, t, tamFuente }: any) {
   );
 }
 
+// ─── COMPONENTE: ACTUALIZAR TIPO DE CAMBIO ────────────────────────────────────
+function ActualizarTC({ t, tamFuente, tcActual, onActualizar }: any) {
+  const [cargando,  setCargando]  = useState(false);
+  const [resultado, setResultado] = useState<string|null>(null);
+  const [ultimaAct, setUltimaAct] = useState<string|null>(null);
+
+  async function actualizar() {
+    setCargando(true); setResultado(null);
+    const tc = await fetchTipoCambio();
+    if (tc > 0) {
+      onActualizar(parseFloat(tc.toFixed(4)));
+      setResultado(`✅ TC actualizado: $${tc.toFixed(4)} MXN por 1 USD`);
+      setUltimaAct(new Date().toLocaleTimeString("es-MX"));
+    } else {
+      setResultado("❌ No se pudo obtener el TC. Verifica tu conexión.");
+    }
+    setCargando(false);
+  }
+
+  return (
+    <div style={{ background: t.input, borderRadius:8, padding:"12px 16px", display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" as const }}>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:t.text }}>Tipo de cambio actual: <span style={{ fontFamily:"monospace", color:t.accent }}>${tcActual.toFixed(4)} MXN / USD</span></div>
+        {ultimaAct && <div style={{ fontSize:11, color:t.textSub, marginTop:2 }}>Última actualización: {ultimaAct}</div>}
+        {resultado && <div style={{ fontSize:12, color: resultado.startsWith("✅")?t.success:t.danger, marginTop:4 }}>{resultado}</div>}
+        <div style={{ fontSize:11, color:t.textSub, marginTop:4 }}>Fuente: frankfurter.app (Banco Central Europeo) · Se aplica a cotizaciones nuevas, no modifica las guardadas.</div>
+      </div>
+      <button onClick={actualizar} disabled={cargando} style={{ padding:"9px 18px", borderRadius:8, border:`1px solid ${t.accent}`, background:"transparent", color:t.accent, cursor:cargando?"not-allowed":"pointer", fontWeight:700, fontSize:tamFuente, opacity:cargando?0.6:1, whiteSpace:"nowrap" as const }}>
+        {cargando ? "⏳ Consultando…" : "🔄 Actualizar TC"}
+      </button>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1115,10 +1184,36 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente, tx }: any) {
         </div>
       </div>
 
+      {/* Folio */}
+      <div style={card}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>🔢 Folio de Cotizaciones</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
+          <div>
+            <label style={label}>Prefijo del folio</label>
+            <input style={inp} value={datos.config.folioPrefix||"COT"} maxLength={8} placeholder="COT"
+              onChange={e=>actualizarDatos({ config:{...datos.config, folioPrefix:e.target.value.toUpperCase().replace(/\s/g,"")} })}/>
+            <div style={{ fontSize:11, color:t.textSub, marginTop:4 }}>Ej: COT, FAB, MQ, TALLER01</div>
+          </div>
+          <div>
+            <label style={label}>Siguiente número</label>
+            <input type="number" style={inp} min={1}
+              value={datos.config.folioSiguiente||1}
+              onChange={e=>actualizarDatos({ config:{...datos.config, folioSiguiente:parseInt(e.target.value)||1} })}/>
+            <div style={{ fontSize:11, color:t.textSub, marginTop:4 }}>Se incrementa automáticamente</div>
+          </div>
+          <div>
+            <label style={label}>Vista previa</label>
+            <div style={{ ...inp, color:t.accent, fontWeight:700, fontFamily:"monospace" }}>
+              {(datos.config.folioPrefix||"COT").toUpperCase()}-{new Date().getFullYear()}-{String(datos.config.folioSiguiente||1).padStart(4,"0")}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Moneda por defecto */}
       <div style={card}>
         <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>💱 Moneda y Tipo de Cambio</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16, marginBottom:14 }}>
           <div>
             <label style={label}>Moneda por defecto</label>
             <select style={inp} value={datos.config.moneda||"MXN"} onChange={e=>actualizarDatos({ config:{...datos.config,moneda:e.target.value} })}>
@@ -1127,7 +1222,8 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente, tx }: any) {
           </div>
           <div>
             <label style={label}>T.C. USD → MXN</label>
-            <input type="number" style={inp} min={1} step={0.1} value={datos.config.tc||17.5} onChange={e=>actualizarDatos({ config:{...datos.config,tc:parseFloat(e.target.value)||17.5} })}/>
+            <input type="number" style={inp} min={1} step={0.01} value={datos.config.tc||17.5}
+              onChange={e=>actualizarDatos({ config:{...datos.config,tc:parseFloat(e.target.value)||17.5} })}/>
           </div>
           <div>
             <label style={label}>Idioma PDF por defecto</label>
@@ -1137,6 +1233,8 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente, tx }: any) {
             </select>
           </div>
         </div>
+        <ActualizarTC t={t} tamFuente={tamFuente} tcActual={datos.config.tc||17.5}
+          onActualizar={(nuevoTC: number) => actualizarDatos({ config:{...datos.config, tc:nuevoTC} })}/>
       </div>
 
       {/* Apariencia */}
