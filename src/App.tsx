@@ -618,58 +618,88 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
 
       {/* Partidas */}
       <div style={card}>
-        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:4 }}>🔩 Partidas del trabajo</div>
-        <div style={{ fontSize:11, color:t.textSub, marginBottom:12 }}>
-          El <strong>Nombre de partida</strong> es lo que verá el cliente en el PDF. Los procesos y materiales son uso interno del taller.
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>🔩 Partidas del trabajo</div>
+          <span style={{ fontSize:11, color:t.textSub }}>El nombre de cada partida es lo que verá el cliente en el PDF</span>
         </div>
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:tamFuente }}>
-            <thead>
-              <tr style={{ color:t.textSub }}>
-                {["Nombre de partida (PDF cliente)","Proceso (interno)","Material (interno)","Horas","Kg/Pzas","Labor","Mat.","Subtotal",""].map((h,i)=>(
-                  <th key={i} style={{ padding:"8px 10px", textAlign:"left", fontWeight:600, borderBottom:`1px solid ${t.border}`,
-                    color: i===0 ? t.accent : t.textSub,
-                    fontSize: i===0 ? tamFuente : tamFuente-1
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {lineasCalc.map((l: any) => (
-                <tr key={l.id}>
-                  <td style={{ padding:"8px 6px" }}>
-                    <input style={{ ...inp, minWidth:160, fontWeight:600, borderColor:t.accent }}
-                      value={l.nombrePartida||""} placeholder="Ej: Fabricación de perno"
-                      onChange={e=>cambiarLinea(l.id,"nombrePartida",e.target.value)}/>
-                  </td>
-                  <td style={{ padding:"8px 6px" }}>
-                    <select style={{ ...inp, minWidth:130 }} value={l.proceso} onChange={e=>cambiarLinea(l.id,"proceso",e.target.value)}>
-                      <option value="">Seleccionar…</option>
-                      {datos.procesos.map((p: any)=><option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+
+        <div style={{ display:"flex", flexDirection:"column" as const, gap:10, marginTop:12 }}>
+          {lineasCalc.map((l: any, idx: number) => (
+            <div key={l.id} style={{ border:`1px solid ${t.border}`, borderRadius:10, overflow:"hidden" }}>
+
+              {/* Encabezado de partida — nombre visible para el cliente */}
+              <div style={{ background:t.accent, padding:"8px 14px", display:"flex", alignItems:"center", gap:10 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.7)", minWidth:20 }}>
+                  {idx+1}
+                </span>
+                <input
+                  value={l.nombrePartida||""}
+                  placeholder={`Ej: Perno M12 × 40mm, Eje de transmisión, Soporte estructural…`}
+                  onChange={e=>cambiarLinea(l.id,"nombrePartida",e.target.value)}
+                  style={{ flex:1, background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:6, padding:"6px 12px", color:"white", fontSize:tamFuente, fontWeight:700, outline:"none" }}
+                />
+                <span style={{ fontSize:10, color:"rgba(255,255,255,0.6)", whiteSpace:"nowrap" as const }}>
+                  → aparece en PDF del cliente
+                </span>
+                <button onClick={()=>eliminarLinea(l.id)}
+                  style={{ background:"rgba(255,255,255,0.15)", border:"none", color:"white", cursor:"pointer", borderRadius:5, padding:"3px 8px", fontSize:14, lineHeight:1 }}>
+                  ×
+                </button>
+              </div>
+
+              {/* Detalle interno — solo lo ve el taller */}
+              <div style={{ padding:"12px 14px", background:t.card }}>
+                <div style={{ fontSize:10, fontWeight:700, color:t.textSub, textTransform:"uppercase" as const, letterSpacing:"0.07em", marginBottom:10 }}>
+                  Detalle interno del taller
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"2fr 2fr 1fr 1fr", gap:10, marginBottom:10 }}>
+                  <div>
+                    <div style={{ fontSize:11, color:t.textSub, marginBottom:4 }}>Proceso</div>
+                    <select style={inp} value={l.proceso} onChange={e=>cambiarLinea(l.id,"proceso",e.target.value)}>
+                      <option value="">Seleccionar proceso…</option>
+                      {datos.procesos.map((p: any)=><option key={p.id} value={p.nombre}>{p.nombre} — ${p.tarifa}/hr</option>)}
                     </select>
-                  </td>
-                  <td style={{ padding:"8px 6px" }}>
-                    <select style={{ ...inp, minWidth:140 }} value={l.material} onChange={e=>cambiarLinea(l.id,"material",e.target.value)}>
-                      <option value="">Seleccionar…</option>
-                      {datos.materiales.map((m: any)=><option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:t.textSub, marginBottom:4 }}>Material</div>
+                    <select style={inp} value={l.material} onChange={e=>cambiarLinea(l.id,"material",e.target.value)}>
+                      <option value="">Seleccionar material…</option>
+                      {datos.materiales.map((m: any)=><option key={m.id} value={m.nombre}>{m.nombre} — ${m.precio}/kg</option>)}
                     </select>
-                  </td>
-                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:65 }} value={l.horas} min={0} onChange={e=>cambiarLinea(l.id,"horas",parseFloat(e.target.value)||0)}/></td>
-                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:65 }} value={l.kg} min={0} onChange={e=>cambiarLinea(l.id,"kg",parseFloat(e.target.value)||0)}/></td>
-                  <td style={{ padding:"8px 10px", color:t.textSub, fontSize:tamFuente-1 }}>{fmtMXN(l.labor)}</td>
-                  <td style={{ padding:"8px 10px", color:t.textSub, fontSize:tamFuente-1 }}>{fmtMXN(l.material)}</td>
-                  <td style={{ padding:"8px 10px", fontWeight:700 }}>{fmtMXN(l.subtotal)}</td>
-                  <td style={{ padding:"8px 6px" }}><button onClick={()=>eliminarLinea(l.id)} style={{ background:"none", border:"none", color:t.danger, cursor:"pointer", fontSize:18 }}>×</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:t.textSub, marginBottom:4 }}>Horas</div>
+                    <input type="number" style={inp} value={l.horas} min={0} step={0.25}
+                      onChange={e=>cambiarLinea(l.id,"horas",parseFloat(e.target.value)||0)}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:t.textSub, marginBottom:4 }}>Kg / Pzas</div>
+                    <input type="number" style={inp} value={l.kg} min={0} step={0.1}
+                      onChange={e=>cambiarLinea(l.id,"kg",parseFloat(e.target.value)||0)}/>
+                  </div>
+                </div>
+                {/* Subtotales de la partida */}
+                <div style={{ display:"flex", gap:16, fontSize:12, color:t.textSub, borderTop:`1px solid ${t.border}`, paddingTop:8 }}>
+                  <span>Labor: <strong style={{ color:t.text }}>{fmtMXN(l.labor)}</strong></span>
+                  <span>Material: <strong style={{ color:t.text }}>{fmtMXN(l.material)}</strong></span>
+                  <span style={{ marginLeft:"auto", fontWeight:700, color:t.text, fontSize:tamFuente }}>
+                    Subtotal: {fmtMXN(l.subtotal)}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          ))}
         </div>
-        <div style={{ display:"flex", gap:12, marginTop:12, alignItems:"center" }}>
-          <button onClick={agregarLinea} style={{ padding:"8px 16px", borderRadius:8, border:`1px dashed ${t.border}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:tamFuente }}>+ Agregar partida</button>
+
+        <div style={{ display:"flex", gap:12, marginTop:14, alignItems:"center", flexWrap:"wrap" as const }}>
+          <button onClick={agregarLinea} style={{ padding:"9px 18px", borderRadius:8, border:`2px dashed ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:tamFuente, fontWeight:600 }}>
+            + Agregar partida
+          </button>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
-            <label style={{ ...label, margin:0 }}>Extras/Fletes:</label>
-            <input type="number" style={{ ...inp, width:120 }} value={extras} min={0} onChange={e=>setExtras(Number(e.target.value))}/>
+            <label style={{ ...label, margin:0 }}>Extras / Fletes:</label>
+            <input type="number" style={{ ...inp, width:130 }} value={extras} min={0}
+              onChange={e=>setExtras(Number(e.target.value))}/>
           </div>
         </div>
       </div>
