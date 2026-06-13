@@ -412,11 +412,11 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
   const lineasCalc = lineas.map(l => {
     const proc = datos.procesos.find((p: any) => p.nombre === l.proceso);
     const mat  = datos.materiales.find((m: any) => m.nombre === l.material);
-    const labor    = (proc?.tarifa || 0) * (l.horas || 0);
-    const material = (mat?.precio  || 0) * (l.kg    || 0);
-    totalLabor    += labor;
-    totalMaterial += material;
-    return { ...l, labor, material, subtotal: labor + material };
+    const costoLabor    = (proc?.tarifa || 0) * (l.horas || 0);
+    const costoMaterial = (mat?.precio  || 0) * (l.kg    || 0);
+    totalLabor    += costoLabor;
+    totalMaterial += costoMaterial;
+    return { ...l, labor: costoLabor, costoMat: costoMaterial, subtotal: costoLabor + costoMaterial };
   });
   const res = calcular(totalLabor, totalMaterial, Number(extras)||0, pctGD, pctSGV, pctMargen);
 
@@ -681,7 +681,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
                 {/* Subtotales de la partida */}
                 <div style={{ display:"flex", gap:16, fontSize:12, color:t.textSub, borderTop:`1px solid ${t.border}`, paddingTop:8 }}>
                   <span>Labor: <strong style={{ color:t.text }}>{fmtMXN(l.labor)}</strong></span>
-                  <span>Material: <strong style={{ color:t.text }}>{fmtMXN(l.material)}</strong></span>
+                  <span>Material: <strong style={{ color:t.text }}>{fmtMXN(l.costoMat)}</strong></span>
                   <span style={{ marginLeft:"auto", fontWeight:700, color:t.text, fontSize:tamFuente }}>
                     Subtotal: {fmtMXN(l.subtotal)}
                   </span>
@@ -773,7 +773,7 @@ function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx, onEditarComple
     <VistaPDF
       datos={datos} lineasCalc={showVista.lineas} res={calcular(
         showVista.lineas.reduce((s: number, l: any) => s+l.labor, 0),
-        showVista.lineas.reduce((s: number, l: any) => s+l.material, 0),
+        showVista.lineas.reduce((s: number, l: any) => s+(l.costoMat||l.subtotal-l.labor||0), 0),
         showVista.extras||0,
         showVista.config?.pctGD||35,
         showVista.config?.pctSGV||15,
