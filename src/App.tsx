@@ -1,206 +1,197 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ─── CONFIGURACIÓN SUPABASE ───────────────────────────────────────────────────
-const SUPABASE_URL = "https://hanvrxmzgyimgsxobjey.supabase.co";
-const SUPABASE_KEY = "sb_publishable_AMnOqs0pzAkqTR-gMDofAg_0BpOKVig";
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://hanvrxmzgyimgsxobjey.supabase.co";
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_AMnOqs0pzAkqTR-gMDofAg_0BpOKVig";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ─── FÓRMULA DEL MOTOR (no modificar) ────────────────────────────────────────
-function calcular(labor, material, extras, pctGD, pctSGV, pctMargen) {
-  const costoDirecto = labor + material + extras;
+// ─── MONEDAS ──────────────────────────────────────────────────────────────────
+const MONEDAS: Record<string, { id: string; label: string; simbolo: string; locale: string; flag: string }> = {
+  MXN: { id:"MXN", label:"Peso Mexicano",     simbolo:"$",  locale:"es-MX", flag:"🇲🇽" },
+  USD: { id:"USD", label:"Dólar Americano",   simbolo:"$",  locale:"en-US", flag:"🇺🇸" },
+  EUR: { id:"EUR", label:"Euro",              simbolo:"€",  locale:"de-DE", flag:"🇪🇺" },
+  CAD: { id:"CAD", label:"Dólar Canadiense",  simbolo:"$",  locale:"en-CA", flag:"🇨🇦" },
+  COP: { id:"COP", label:"Peso Colombiano",   simbolo:"$",  locale:"es-CO", flag:"🇨🇴" },
+  ARS: { id:"ARS", label:"Peso Argentino",    simbolo:"$",  locale:"es-AR", flag:"🇦🇷" },
+  BRL: { id:"BRL", label:"Real Brasileño",    simbolo:"R$", locale:"pt-BR", flag:"🇧🇷" },
+  CLP: { id:"CLP", label:"Peso Chileno",      simbolo:"$",  locale:"es-CL", flag:"🇨🇱" },
+  PEN: { id:"PEN", label:"Sol Peruano",       simbolo:"S/", locale:"es-PE", flag:"🇵🇪" },
+  GBP: { id:"GBP", label:"Libra Esterlina",   simbolo:"£",  locale:"en-GB", flag:"🇬🇧" },
+};
+
+// ─── TEXTOS BILINGÜE ──────────────────────────────────────────────────────────
+const T18N: Record<string, Record<string, string>> = {
+  es: {
+    cotizacion:"COTIZACIÓN", cliente:"Cliente", condiciones:"Condiciones",
+    entrega:"Entrega", pago:"Pago", vigencia:"Vigencia",
+    descripcion:"Descripción de Servicios", cant:"Cant.", unidad:"Unidad",
+    pUnitario:"P. Unitario", total:"Total", subtotal:"Subtotal",
+    notas:"Notas", elaboro:"Elaboró", autorizo:"Autorizó / Cliente",
+    dias:"días", porConfirmar:"Por confirmar", attn:"Attn:", plano:"Plano:",
+    guardar:"Guardar Cotización", nuevaCot:"Nueva Cotización",
+    misCots:"Mis Cotizaciones", materiales:"Materiales",
+    procesos:"Procesos", configuracion:"Configuración",
+  },
+  en: {
+    cotizacion:"QUOTATION", cliente:"Bill To", condiciones:"Terms",
+    entrega:"Delivery", pago:"Payment", vigencia:"Valid for",
+    descripcion:"Services Description", cant:"Qty.", unidad:"Unit",
+    pUnitario:"Unit Price", total:"Total", subtotal:"Subtotal",
+    notas:"Notes", elaboro:"Prepared by", autorizo:"Authorized / Client",
+    dias:"days", porConfirmar:"To be confirmed", attn:"Attn:", plano:"Dwg:",
+    guardar:"Save Quote", nuevaCot:"New Quote",
+    misCots:"My Quotes", materiales:"Materials",
+    procesos:"Processes", configuracion:"Settings",
+  },
+};
+
+// ─── FÓRMULA DE CÁLCULO (no modificar) ───────────────────────────────────────
+function calcular(labor: number, material: number, extras: number, pctGD: number, pctSGV: number, pctMargen: number) {
+  const costoDirecto   = labor + material + extras;
   const gastosDirectos = costoDirecto * (pctGD / 100);
-  const subtotalGD = costoDirecto + gastosDirectos;
-  const gastosSGV = subtotalGD * (pctSGV / 100);
-  const costoEmpresa = subtotalGD + gastosSGV;
-  const precioVenta = costoEmpresa / (1 - pctMargen / 100);
-  const utilidad = precioVenta - costoEmpresa;
-  const margenReal = (utilidad / precioVenta) * 100;
+  const subtotalGD     = costoDirecto + gastosDirectos;
+  const gastosSGV      = subtotalGD * (pctSGV / 100);
+  const costoEmpresa   = subtotalGD + gastosSGV;
+  const precioVenta    = costoEmpresa / (1 - pctMargen / 100);
+  const utilidad       = precioVenta - costoEmpresa;
+  const margenReal     = precioVenta > 0 ? (utilidad / precioVenta) * 100 : 0;
   return { costoDirecto, gastosDirectos, subtotalGD, gastosSGV, costoEmpresa, precioVenta, utilidad, margenReal };
 }
 
-function fmt(n) {
+function fmtMXN(n: number) {
   return "$" + Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ─── DATOS INICIALES ──────────────────────────────────────────────────────────
-const DATOS_INICIALES = {
-  taller: { nombre: "", telefono: "", email: "", logo: "" },
-  config: { pctGD: 35, pctSGV: 15, pctMargen: 25 },
-  tema: "oscuro",
-  fuente: "IBM Plex Sans",
-  tamTexto: "normal",
-  plantillaPDF: "formal",
-  materiales: [
-    { id: 1, nombre: "Acero 1018", precio: 45 },
-    { id: 2, nombre: "Acero inoxidable 304", precio: 120 },
-    { id: 3, nombre: "Aluminio 6061", precio: 85 },
-  ],
-  procesos: [
-    { id: 1, nombre: "Torno CNC", tarifa: 350 },
-    { id: 2, nombre: "Fresadora CNC", tarifa: 400 },
-    { id: 3, nombre: "Rectificado", tarifa: 280 },
-  ],
-  cotizaciones: [],
-};
+function fmtMoneda(n: number, monedaId = "MXN") {
+  const m = MONEDAS[monedaId] || MONEDAS.MXN;
+  return new Intl.NumberFormat(m.locale, { style: "currency", currency: m.id, minimumFractionDigits: 2 }).format(n || 0);
+}
+
+function convertirMoneda(mxnAmount: number, monedaId: string, tc: number) {
+  if (monedaId === "MXN") return mxnAmount;
+  const tasasVsUSD: Record<string, number> = { USD:1, EUR:0.92, CAD:1.36, COP:3900, ARS:900, BRL:4.97, CLP:920, PEN:3.75, GBP:0.79 };
+  const usd = mxnAmount / (tc || 17.5);
+  return usd * (tasasVsUSD[monedaId] || 1);
+}
 
 // ─── TEMAS ────────────────────────────────────────────────────────────────────
-const TEMAS = {
+const TEMAS: Record<string, Record<string, string>> = {
   oscuro: {
-    bg: "#0f1117", card: "#1a1d27", border: "#2a2d3e",
-    text: "#e8eaf0", textSub: "#8b8fa8", accent: "#4f6ef7",
-    accentHover: "#3d5ce0", success: "#22c55e", danger: "#ef4444",
-    input: "#12151f", header: "#13161f",
+    bg:"#0f1117", card:"#1a1d27", border:"#2a2d3e",
+    text:"#e8eaf0", textSub:"#8b8fa8", accent:"#4f6ef7",
+    accentHover:"#3d5ce0", success:"#22c55e", danger:"#ef4444",
+    input:"#12151f", header:"#13161f",
+    acento:"#1B9E75", btnOrange:"#f97316",
   },
   claro: {
-    bg: "#f4f5f9", card: "#ffffff", border: "#e2e4ed",
-    text: "#1a1d27", textSub: "#6b7080", accent: "#4f6ef7",
-    accentHover: "#3d5ce0", success: "#16a34a", danger: "#dc2626",
-    input: "#f8f9fc", header: "#ffffff",
+    bg:"#f4f5f9", card:"#ffffff", border:"#e2e4ed",
+    text:"#1a1d27", textSub:"#6b7080", accent:"#4f6ef7",
+    accentHover:"#3d5ce0", success:"#16a34a", danger:"#dc2626",
+    input:"#f8f9fc", header:"#ffffff",
+    acento:"#16a34a", btnOrange:"#f97316",
   },
   marino: {
-    bg: "#0a1628", card: "#0f2040", border: "#1a3a6b",
-    text: "#cdd8f0", textSub: "#7a96c4", accent: "#38bdf8",
-    accentHover: "#0ea5e9", success: "#34d399", danger: "#f87171",
-    input: "#0d1c36", header: "#0d1c36",
+    bg:"#0a1628", card:"#0f2040", border:"#1a3a6b",
+    text:"#cdd8f0", textSub:"#7a96c4", accent:"#38bdf8",
+    accentHover:"#0ea5e9", success:"#34d399", danger:"#f87171",
+    input:"#0d1c36", header:"#0d1c36",
+    acento:"#38bdf8", btnOrange:"#38bdf8",
   },
+};
+
+// ─── DATOS INICIALES ──────────────────────────────────────────────────────────
+const DATOS_INICIALES = {
+  taller: {
+    nombre:"", telefono:"", email:"", logo:"",
+    rfc:"", razonSocial:"", direccionFiscal:"",
+  },
+  config: { pctGD:35, pctSGV:15, pctMargen:25, tc:17.5, moneda:"MXN", idioma:"es" },
+  tema:"oscuro", fuente:"IBM Plex Sans", tamTexto:"normal", plantillaPDF:"formal",
+  materiales: [
+    { id:1, nombre:"Acero 1018",           precio:45  },
+    { id:2, nombre:"Acero inoxidable 304", precio:120 },
+    { id:3, nombre:"Aluminio 6061",        precio:85  },
+    { id:4, nombre:"Acero 4140",           precio:58  },
+    { id:5, nombre:"Aluminio 7075-T6",     precio:185 },
+  ],
+  procesos: [
+    { id:1, nombre:"Torno CNC",          tarifa:350 },
+    { id:2, nombre:"Fresadora CNC",      tarifa:400 },
+    { id:3, nombre:"Rectificado",        tarifa:280 },
+    { id:4, nombre:"Soldadura TIG",      tarifa:280 },
+    { id:5, nombre:"Corte Láser",        tarifa:380 },
+  ],
+  cotizaciones: [] as any[],
+  clientes:     [] as any[],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANTALLA DE LOGIN
 // ═══════════════════════════════════════════════════════════════════════════════
-function PantallaLogin({ onLogin }) {
-  const [modo, setModo] = useState("login"); // login | registro | reset
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [cargando, setCargando] = useState(false);
-  const [mensaje, setMensaje] = useState(null);
-
+function PantallaLogin() {
+  const [modo, setModo]       = useState<"login"|"registro"|"reset">("login");
+  const [email, setEmail]     = useState("");
+  const [password, setPass]   = useState("");
+  const [cargando, setCarg]   = useState(false);
+  const [mensaje, setMsg]     = useState<{tipo:string;texto:string}|null>(null);
   const t = TEMAS.oscuro;
 
-  async function handleLogin(e) {
-    e.preventDefault();
-    setCargando(true);
-    setMensaje(null);
+  async function handleLogin(e: any) {
+    e.preventDefault(); setCarg(true); setMsg(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setMensaje({ tipo: "error", texto: "Correo o contraseña incorrectos." });
-    setCargando(false);
+    if (error) setMsg({ tipo:"error", texto:"Correo o contraseña incorrectos." });
+    setCarg(false);
   }
-
-  async function handleRegistro(e) {
-    e.preventDefault();
-    setCargando(true);
-    setMensaje(null);
+  async function handleRegistro(e: any) {
+    e.preventDefault(); setCarg(true); setMsg(null);
     const { error } = await supabase.auth.signUp({ email, password });
-    if (error) setMensaje({ tipo: "error", texto: error.message });
-    else setMensaje({ tipo: "ok", texto: "¡Cuenta creada! Revisa tu correo para confirmar." });
-    setCargando(false);
+    if (error) setMsg({ tipo:"error", texto: error.message });
+    else setMsg({ tipo:"ok", texto:"¡Cuenta creada! Revisa tu correo para confirmar." });
+    setCarg(false);
   }
-
-  async function handleReset(e) {
-    e.preventDefault();
-    setCargando(true);
-    setMensaje(null);
+  async function handleReset(e: any) {
+    e.preventDefault(); setCarg(true); setMsg(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email);
-    if (error) setMensaje({ tipo: "error", texto: error.message });
-    else setMensaje({ tipo: "ok", texto: "Te enviamos un enlace para restablecer tu contraseña." });
-    setCargando(false);
+    if (error) setMsg({ tipo:"error", texto: error.message });
+    else setMsg({ tipo:"ok", texto:"Te enviamos un enlace para restablecer tu contraseña." });
+    setCarg(false);
   }
 
-  const inputStyle = {
-    width: "100%", padding: "12px 14px", borderRadius: 8,
-    border: `1px solid ${t.border}`, background: t.input,
-    color: t.text, fontSize: 15, outline: "none", boxSizing: "border-box",
-  };
-  const btnStyle = {
-    width: "100%", padding: "13px", borderRadius: 8, border: "none",
-    background: t.accent, color: "#fff", fontSize: 16, fontWeight: 700,
-    cursor: cargando ? "not-allowed" : "pointer", opacity: cargando ? 0.7 : 1,
-  };
+  const inp  = { width:"100%", padding:"12px 14px", borderRadius:8, border:`1px solid ${t.border}`, background:t.input, color:t.text, fontSize:15, outline:"none", boxSizing:"border-box" as const };
+  const btn  = { width:"100%", padding:"13px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontSize:16, fontWeight:700, cursor:cargando?"not-allowed":"pointer", opacity:cargando?0.7:1 };
 
   return (
-    <div style={{
-      minHeight: "100vh", background: t.bg, display: "flex",
-      alignItems: "center", justifyContent: "center",
-      fontFamily: "'IBM Plex Sans', sans-serif",
-    }}>
-      <div style={{
-        width: 400, background: t.card, borderRadius: 16,
-        border: `1px solid ${t.border}`, padding: 40,
-      }}>
-        {/* Logo / título */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 56, height: 56, borderRadius: 14, background: t.accent,
-            marginBottom: 16, fontSize: 26,
-          }}>⚙️</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: t.text }}>CotizadorPRO</div>
-          <div style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>Estándar — Sistema de Cotización Industrial</div>
+    <div style={{ minHeight:"100vh", background:t.bg, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'IBM Plex Sans',sans-serif" }}>
+      <div style={{ width:400, background:t.card, borderRadius:16, border:`1px solid ${t.border}`, padding:40 }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:56, height:56, borderRadius:14, background:t.accent, marginBottom:16, fontSize:26 }}>⚙️</div>
+          <div style={{ fontSize:22, fontWeight:800, color:t.text }}>CotizadorPRO</div>
+          <div style={{ fontSize:13, color:t.textSub, marginTop:4 }}>Estándar — Sistema de Cotización Industrial</div>
         </div>
-
-        {/* Tabs */}
         {modo !== "reset" && (
-          <div style={{ display: "flex", marginBottom: 28, background: t.input, borderRadius: 8, padding: 4 }}>
-            {["login", "registro"].map(m => (
-              <button key={m} onClick={() => { setModo(m); setMensaje(null); }} style={{
-                flex: 1, padding: "9px 0", border: "none", borderRadius: 6, cursor: "pointer",
-                background: modo === m ? t.accent : "transparent",
-                color: modo === m ? "#fff" : t.textSub,
-                fontWeight: 600, fontSize: 14, transition: "all 0.2s",
-              }}>
+          <div style={{ display:"flex", marginBottom:28, background:t.input, borderRadius:8, padding:4 }}>
+            {(["login","registro"] as const).map(m => (
+              <button key={m} onClick={() => { setModo(m); setMsg(null); }} style={{ flex:1, padding:"9px 0", border:"none", borderRadius:6, cursor:"pointer", background:modo===m?t.accent:"transparent", color:modo===m?"#fff":t.textSub, fontWeight:600, fontSize:14 }}>
                 {m === "login" ? "Iniciar sesión" : "Registrarse"}
               </button>
             ))}
           </div>
         )}
-
-        {/* Formulario */}
-        <form onSubmit={modo === "login" ? handleLogin : modo === "registro" ? handleRegistro : handleReset}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {modo === "reset" && (
-              <div style={{ color: t.textSub, fontSize: 14, marginBottom: 4 }}>
-                Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
-              </div>
-            )}
-            <input
-              style={inputStyle} type="email" placeholder="Correo electrónico"
-              value={email} onChange={e => setEmail(e.target.value)} required
-            />
-            {modo !== "reset" && (
-              <input
-                style={inputStyle} type="password" placeholder="Contraseña (mínimo 6 caracteres)"
-                value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-              />
-            )}
-            <button type="submit" style={btnStyle} disabled={cargando}>
-              {cargando ? "Procesando..." : modo === "login" ? "Entrar" : modo === "registro" ? "Crear cuenta" : "Enviar enlace"}
-            </button>
+        <form onSubmit={modo==="login"?handleLogin:modo==="registro"?handleRegistro:handleReset}>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {modo === "reset" && <div style={{ color:t.textSub, fontSize:14 }}>Ingresa tu correo para recibir el enlace de recuperación.</div>}
+            <input style={inp} type="email" placeholder="Correo electrónico" value={email} onChange={e=>setEmail(e.target.value)} required />
+            {modo !== "reset" && <input style={inp} type="password" placeholder="Contraseña (mínimo 6 caracteres)" value={password} onChange={e=>setPass(e.target.value)} required minLength={6} />}
+            <button type="submit" style={btn} disabled={cargando}>{cargando?"Procesando...":modo==="login"?"Entrar":modo==="registro"?"Crear cuenta":"Enviar enlace"}</button>
           </div>
         </form>
-
-        {/* Mensaje */}
         {mensaje && (
-          <div style={{
-            marginTop: 16, padding: "10px 14px", borderRadius: 8, fontSize: 14,
-            background: mensaje.tipo === "ok" ? "#14532d33" : "#7f1d1d33",
-            color: mensaje.tipo === "ok" ? t.success : t.danger,
-            border: `1px solid ${mensaje.tipo === "ok" ? t.success : t.danger}`,
-          }}>
-            {mensaje.texto}
-          </div>
+          <div style={{ marginTop:16, padding:"10px 14px", borderRadius:8, fontSize:14, background:mensaje.tipo==="ok"?"#14532d33":"#7f1d1d33", color:mensaje.tipo==="ok"?t.success:t.danger, border:`1px solid ${mensaje.tipo==="ok"?t.success:t.danger}` }}>{mensaje.texto}</div>
         )}
-
-        {/* Links */}
-        <div style={{ marginTop: 20, textAlign: "center", fontSize: 13, color: t.textSub }}>
-          {modo === "login" && (
-            <span onClick={() => { setModo("reset"); setMensaje(null); }}
-              style={{ cursor: "pointer", color: t.accent }}>¿Olvidaste tu contraseña?</span>
-          )}
-          {modo === "reset" && (
-            <span onClick={() => { setModo("login"); setMensaje(null); }}
-              style={{ cursor: "pointer", color: t.accent }}>← Volver al login</span>
-          )}
+        <div style={{ marginTop:20, textAlign:"center", fontSize:13, color:t.textSub }}>
+          {modo==="login" && <span onClick={()=>{setModo("reset");setMsg(null);}} style={{ cursor:"pointer", color:t.accent }}>¿Olvidaste tu contraseña?</span>}
+          {modo==="reset" && <span onClick={()=>{setModo("login");setMsg(null);}} style={{ cursor:"pointer", color:t.accent }}>← Volver al login</span>}
         </div>
       </div>
     </div>
@@ -211,28 +202,28 @@ function PantallaLogin({ onLogin }) {
 // APP PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function CotizadorProEstandar() {
-  const [sesion, setSesion] = useState(null);
-  const [cargandoSesion, setCargandoSesion] = useState(true);
-  const [datos, setDatos] = useState(DATOS_INICIALES);
-  const [guardando, setGuardando] = useState(false);
-  const [pestana, setPestana] = useState("cotizar");
+  const [sesion, setSesion]             = useState<any>(null);
+  const [cargandoSesion, setCargSesion] = useState(true);
+  const [datos, setDatos]               = useState<any>(DATOS_INICIALES);
+  const [guardando, setGuardando]       = useState(false);
+  const [pestana, setPestana]           = useState("cotizar");
 
-  // ── Auth listener ───────────────────────────────────────────────────────────
+  // ── Auth ─────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: any) => {
       setSesion(session);
-      setCargandoSesion(false);
+      setCargSesion(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_: any, session: any) => {
       setSesion(session);
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Cargar datos del taller desde Supabase ──────────────────────────────────
+  // ── Cargar datos desde Supabase ───────────────────────────────────────────────
   useEffect(() => {
     if (!sesion) return;
-    async function cargarDatos() {
+    (async () => {
       const { data, error } = await supabase
         .from("cotizaciones")
         .select("datos")
@@ -243,112 +234,94 @@ export default function CotizadorProEstandar() {
       if (data && !error) {
         setDatos({ ...DATOS_INICIALES, ...data.datos });
       }
-    }
-    cargarDatos();
+    })();
   }, [sesion]);
 
-  // ── Guardar datos en Supabase ───────────────────────────────────────────────
-  const guardarDatos = useCallback(async (nuevosDatos) => {
+  // ── Guardar en Supabase (upsert por user_id) ──────────────────────────────────
+  const guardarDatos = useCallback(async (nuevosDatos: any) => {
     if (!sesion) return;
     setGuardando(true);
     const payload = { user_id: sesion.user.id, datos: nuevosDatos, updated_at: new Date().toISOString() };
-    // Upsert basado en user_id
     const { error } = await supabase.from("cotizaciones").upsert(payload, { onConflict: "user_id" });
     if (error) console.error("Error guardando:", error);
     setGuardando(false);
   }, [sesion]);
 
-  const actualizarDatos = useCallback((cambios) => {
-    setDatos(prev => {
+  const actualizarDatos = useCallback((cambios: any) => {
+    setDatos((prev: any) => {
       const nuevo = { ...prev, ...cambios };
       guardarDatos(nuevo);
       return nuevo;
     });
   }, [guardarDatos]);
 
-  async function cerrarSesion() {
-    await supabase.auth.signOut();
-  }
+  async function cerrarSesion() { await supabase.auth.signOut(); }
 
-  // ── Estados de carga ────────────────────────────────────────────────────────
-  if (cargandoSesion) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#4f6ef7", fontSize: 18, fontFamily: "IBM Plex Sans, sans-serif" }}>Cargando CotizadorPRO…</div>
-      </div>
-    );
-  }
+  if (cargandoSesion) return (
+    <div style={{ minHeight:"100vh", background:"#0f1117", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"#4f6ef7", fontSize:18, fontFamily:"IBM Plex Sans,sans-serif" }}>Cargando CotizadorPRO…</div>
+    </div>
+  );
 
   if (!sesion) return <PantallaLogin />;
 
-  const t = TEMAS[datos.tema] || TEMAS.oscuro;
-
-  const estiloGlobal = `
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap');
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: ${t.bg}; color: ${t.text}; font-family: '${datos.fuente}', sans-serif; }
-    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: ${t.bg}; }
-    ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 3px; }
-    input, select, textarea { font-family: '${datos.fuente}', sans-serif; }
-  `;
-
+  const t        = TEMAS[datos.tema] || TEMAS.oscuro;
   const tamFuente = datos.tamTexto === "chico" ? 13 : datos.tamTexto === "grande" ? 16 : 14;
+  const tx        = T18N[datos.config?.idioma || "es"] || T18N.es;
 
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, color: t.text, fontSize: tamFuente, fontFamily: `'${datos.fuente}', sans-serif` }}>
-      <style>{estiloGlobal}</style>
+    <div style={{ minHeight:"100vh", background:t.bg, color:t.text, fontSize:tamFuente, fontFamily:`'${datos.fuente}',sans-serif` }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&display=swap');
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { background:${t.bg}; color:${t.text}; font-family:'${datos.fuente}',sans-serif; }
+        ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:${t.bg}} ::-webkit-scrollbar-thumb{background:${t.border};border-radius:3px}
+        input,select,textarea{font-family:'${datos.fuente}',sans-serif;}
+        @media print{header,nav,[data-noprint]{display:none!important}body{background:white!important}.print-doc{max-width:100%!important;border:none!important;box-shadow:none!important}}
+      `}</style>
 
-      {/* ── HEADER ── */}
-      <header style={{
-        background: t.header, borderBottom: `1px solid ${t.border}`,
-        padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, zIndex: 100,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {/* HEADER */}
+      <header style={{ background:t.header, borderBottom:`1px solid ${t.border}`, padding:"0 24px", height:60, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           {datos.taller.logo
-            ? <img src={datos.taller.logo} alt="logo" style={{ height: 36, borderRadius: 6, objectFit: "contain" }} />
-            : <div style={{ width: 36, height: 36, borderRadius: 8, background: t.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚙️</div>
+            ? <img src={datos.taller.logo} alt="logo" style={{ height:36, borderRadius:6, objectFit:"contain" }}/>
+            : <div style={{ width:36, height:36, borderRadius:8, background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>⚙️</div>
           }
           <div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: t.text }}>{datos.taller.nombre || "CotizadorPRO"}</div>
-            <div style={{ fontSize: 11, color: t.textSub }}>Estándar · {sesion.user.email}</div>
+            <div style={{ fontWeight:800, fontSize:15, color:t.text }}>{datos.taller.nombre||"CotizadorPRO"}</div>
+            <div style={{ fontSize:11, color:t.textSub }}>Estándar · {sesion.user.email}</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {guardando && <span style={{ fontSize: 12, color: t.textSub }}>Guardando…</span>}
-          <button onClick={cerrarSesion} style={{
-            padding: "6px 14px", borderRadius: 7, border: `1px solid ${t.border}`,
-            background: "transparent", color: t.textSub, cursor: "pointer", fontSize: 13,
-          }}>Cerrar sesión</button>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          {guardando && <span style={{ fontSize:12, color:t.textSub }}>Guardando…</span>}
+          <button onClick={cerrarSesion} style={{ padding:"6px 14px", borderRadius:7, border:`1px solid ${t.border}`, background:"transparent", color:t.textSub, cursor:"pointer", fontSize:13 }}>Cerrar sesión</button>
         </div>
       </header>
 
-      {/* ── NAV ── */}
-      <nav style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "0 24px", display: "flex", gap: 4 }}>
+      {/* NAV */}
+      <nav style={{ background:t.card, borderBottom:`1px solid ${t.border}`, padding:"0 24px", display:"flex", gap:4, overflowX:"auto" }}>
         {[
-          { id: "cotizar", label: "📋 Nueva Cotización" },
-          { id: "lista", label: "📁 Mis Cotizaciones" },
-          { id: "materiales", label: "🔩 Materiales" },
-          { id: "procesos", label: "⚙️ Procesos" },
-          { id: "config", label: "🎛️ Configuración" },
+          { id:"cotizar",     label:`📋 ${tx.nuevaCot}`     },
+          { id:"lista",       label:`📁 ${tx.misCots}`      },
+          { id:"materiales",  label:`🔩 ${tx.materiales}`   },
+          { id:"procesos",    label:`⚙️ ${tx.procesos}`     },
+          { id:"clientes",    label:"👥 Clientes"           },
+          { id:"config",      label:`🎛️ ${tx.configuracion}` },
         ].map(tab => (
-          <button key={tab.id} onClick={() => setPestana(tab.id)} style={{
-            padding: "14px 16px", border: "none", background: "transparent", cursor: "pointer",
-            color: pestana === tab.id ? t.accent : t.textSub,
-            borderBottom: `2px solid ${pestana === tab.id ? t.accent : "transparent"}`,
-            fontWeight: pestana === tab.id ? 700 : 400, fontSize: tamFuente,
-            fontFamily: `'${datos.fuente}', sans-serif`,
-          }}>{tab.label}</button>
+          <button key={tab.id} onClick={()=>setPestana(tab.id)} style={{ padding:"14px 16px", border:"none", background:"transparent", cursor:"pointer", color:pestana===tab.id?t.accent:t.textSub, borderBottom:`2px solid ${pestana===tab.id?t.accent:"transparent"}`, fontWeight:pestana===tab.id?700:400, fontSize:tamFuente, fontFamily:`'${datos.fuente}',sans-serif`, whiteSpace:"nowrap" as const }}>
+            {tab.label}
+          </button>
         ))}
       </nav>
 
-      {/* ── CONTENIDO ── */}
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
-        {pestana === "cotizar" && <PestanaCotizar datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
-        {pestana === "lista" && <PestanaLista datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
-        {pestana === "materiales" && <PestanaMateriales datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
-        {pestana === "procesos" && <PestanaProcesos datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
-        {pestana === "config" && <PestanaConfig datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+      {/* CONTENIDO */}
+      <main style={{ maxWidth:1100, margin:"0 auto", padding:"24px 16px" }}>
+        {pestana==="cotizar"    && <PestanaCotizar    datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
+        {pestana==="lista"      && <PestanaLista      datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
+        {pestana==="materiales" && <PestanaMateriales datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana==="procesos"   && <PestanaProcesos   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana==="clientes"   && <PestanaClientes   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana==="config"     && <PestanaConfig     datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
       </main>
     </div>
   );
@@ -357,165 +330,293 @@ export default function CotizadorProEstandar() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: NUEVA COTIZACIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaCotizar({ datos, actualizarDatos, t, tamFuente }) {
-  const [cliente, setCliente] = useState("");
-  const [folio, setFolio] = useState("COT-" + String(Date.now()).slice(-5));
-  const [descripcion, setDescripcion] = useState("");
-  const [lineas, setLineas] = useState([nuevaLinea()]);
-  const [extras, setExtras] = useState(0);
-  const [nota, setNota] = useState("");
+function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx }: any) {
+  const [clienteNombre,   setClienteNombre]   = useState("");
+  const [clienteEmpresa,  setClienteEmpresa]  = useState("");
+  const [clienteEmail,    setClienteEmail]    = useState("");
+  const [clienteTel,      setClienteTel]      = useState("");
+  const [clienteCiudad,   setClienteCiudad]   = useState("");
+  const [clienteRFC,      setClienteRFC]      = useState("");
+  const [clienteRazon,    setClienteRazon]    = useState("");
+  const [clienteDirFiscal,setClienteDirFiscal]= useState("");
+  const [folio,           setFolio]           = useState("COT-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*9000)+1000));
+  const [descripcion,     setDescripcion]     = useState("");
+  const [lineas,          setLineas]          = useState([nuevaLinea()]);
+  const [extras,          setExtras]          = useState(0);
+  const [nota,            setNota]            = useState("");
+  const [entrega,         setEntrega]         = useState("");
+  const [pago,            setPago]            = useState("Anticipo 50% / Liquidación a entrega");
+  const [validez,         setValidez]         = useState(30);
+  const [showVistaCliente,setShowVistaCliente]= useState(false);
+  const [showSelectorCli, setShowSelectorCli] = useState(false);
+  const [buscaCli,        setBuscaCli]        = useState("");
+  const [moneda,          setMoneda]          = useState(datos.config?.moneda || "MXN");
+  const [tc,              setTc]              = useState(datos.config?.tc || 17.5);
+  const [idioma,          setIdioma]          = useState(datos.config?.idioma || "es");
 
-  function nuevaLinea() {
-    return { id: Date.now() + Math.random(), proceso: "", material: "", kg: 0, horas: 0 };
-  }
+  function nuevaLinea() { return { id: Date.now() + Math.random(), proceso:"", material:"", kg:0, horas:0 }; }
 
   const { pctGD, pctSGV, pctMargen } = datos.config;
-
-  // Calcular totales
   let totalLabor = 0, totalMaterial = 0;
   const lineasCalc = lineas.map(l => {
-    const proc = datos.procesos.find(p => p.nombre === l.proceso);
-    const mat = datos.materiales.find(m => m.nombre === l.material);
-    const labor = (proc?.tarifa || 0) * (l.horas || 0);
-    const material = (mat?.precio || 0) * (l.kg || 0);
-    totalLabor += labor;
+    const proc = datos.procesos.find((p: any) => p.nombre === l.proceso);
+    const mat  = datos.materiales.find((m: any) => m.nombre === l.material);
+    const labor    = (proc?.tarifa || 0) * (l.horas || 0);
+    const material = (mat?.precio  || 0) * (l.kg    || 0);
+    totalLabor    += labor;
     totalMaterial += material;
     return { ...l, labor, material, subtotal: labor + material };
   });
+  const res = calcular(totalLabor, totalMaterial, Number(extras)||0, pctGD, pctSGV, pctMargen);
 
-  const res = calcular(totalLabor, totalMaterial, Number(extras) || 0, pctGD, pctSGV, pctMargen);
+  const txCot = T18N[idioma] || T18N.es;
+  const fmt2  = (n: number) => fmtMoneda(convertirMoneda(n, moneda, tc), moneda);
+  const monedaLabel = moneda !== "MXN" ? ` ${moneda}` : " MXN";
 
-  function agregarLinea() { setLineas(p => [...p, nuevaLinea()]); }
-  function eliminarLinea(id) { setLineas(p => p.filter(l => l.id !== id)); }
-  function cambiarLinea(id, campo, valor) { setLineas(p => p.map(l => l.id === id ? { ...l, [campo]: valor } : l)); }
+  function agregarLinea()                  { setLineas(p => [...p, nuevaLinea()]); }
+  function eliminarLinea(id: number)       { setLineas(p => p.filter((l: any) => l.id !== id)); }
+  function cambiarLinea(id: number, campo: string, valor: any) { setLineas(p => p.map((l: any) => l.id===id?{...l,[campo]:valor}:l)); }
 
-  function guardarCotizacion() {
-    const nueva = {
-      id: Date.now(),
-      folio, cliente, descripcion, fecha: new Date().toLocaleDateString("es-MX"),
-      lineas: lineasCalc, extras: Number(extras) || 0, nota,
-      precioVenta: res.precioVenta, utilidad: res.utilidad, margenReal: res.margenReal,
-      config: { pctGD, pctSGV, pctMargen },
-    };
-    const nuevasCots = [nueva, ...(datos.cotizaciones || [])];
-    actualizarDatos({ cotizaciones: nuevasCots });
-    setFolio("COT-" + String(Date.now()).slice(-5));
-    setCliente(""); setDescripcion(""); setLineas([nuevaLinea()]); setExtras(0); setNota("");
-    alert("✅ Cotización guardada correctamente.");
+  function cargarCliente(c: any) {
+    setClienteEmpresa(c.empresa||""); setClienteNombre(c.nombre||"");
+    setClienteEmail(c.email||"");     setClienteTel(c.tel||"");
+    setClienteCiudad(c.ciudad||"");   setClienteRFC(c.rfc||"");
+    setClienteRazon(c.razonSocial||""); setClienteDirFiscal(c.direccionFiscal||"");
+    setShowSelectorCli(false); setBuscaCli("");
   }
 
-  const card = { background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 20, marginBottom: 20 };
-  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
-  const sel = { ...inp };
-  const label = { fontSize: tamFuente - 1, color: t.textSub, marginBottom: 5, display: "block" };
+  function guardarClienteEnCatalogo() {
+    if (!clienteEmpresa && !clienteNombre) return;
+    const clientes = datos.clientes || [];
+    const existe   = clientes.find((c: any) => c.empresa?.toLowerCase() === clienteEmpresa.toLowerCase());
+    const datosCliente = { empresa:clienteEmpresa, nombre:clienteNombre, email:clienteEmail, tel:clienteTel, ciudad:clienteCiudad, rfc:clienteRFC, razonSocial:clienteRazon, direccionFiscal:clienteDirFiscal };
+    let nuevosClientes;
+    if (existe) {
+      nuevosClientes = clientes.map((c: any) => c.empresa?.toLowerCase()===clienteEmpresa.toLowerCase() ? {...c,...datosCliente} : c);
+    } else {
+      nuevosClientes = [...clientes, { ...datosCliente, id: Date.now(), creadoEn: new Date().toLocaleDateString("es-MX") }];
+    }
+    actualizarDatos({ clientes: nuevosClientes });
+    alert("✅ Cliente guardado en catálogo.");
+  }
+
+  function guardarCotizacion() {
+    if (!clienteEmpresa && !clienteNombre) { alert("Agrega al menos el nombre o empresa del cliente."); return; }
+    const nueva = {
+      id: Date.now(), folio, descripcion,
+      fecha: new Date().toLocaleDateString("es-MX"),
+      cliente: { nombre:clienteNombre, empresa:clienteEmpresa, email:clienteEmail, tel:clienteTel, ciudad:clienteCiudad, rfc:clienteRFC, razonSocial:clienteRazon, direccionFiscal:clienteDirFiscal },
+      lineas: lineasCalc, extras: Number(extras)||0, nota,
+      cond: { entrega, pago, validez },
+      config: { pctGD, pctSGV, pctMargen, moneda, tc, idioma },
+      precioVenta: res.precioVenta, utilidad: res.utilidad, margenReal: res.margenReal,
+    };
+    actualizarDatos({ cotizaciones: [nueva, ...(datos.cotizaciones||[])] });
+    setFolio("COT-" + new Date().getFullYear() + "-" + String(Math.floor(Math.random()*9000)+1000));
+    setClienteNombre(""); setClienteEmpresa(""); setClienteEmail(""); setClienteTel(""); setClienteCiudad("");
+    setClienteRFC(""); setClienteRazon(""); setClienteDirFiscal("");
+    setDescripcion(""); setLineas([nuevaLinea()]); setExtras(0); setNota(""); setEntrega(""); setPago("Anticipo 50% / Liquidación a entrega");
+    alert("✅ Cotización guardada.");
+  }
+
+  const card  = { background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:20, marginBottom:20 };
+  const inp   = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
+  const label = { fontSize:tamFuente-1, color:t.textSub, marginBottom:5, display:"block" };
+
+  if (showVistaCliente) return (
+    <VistaPDF
+      datos={datos} lineasCalc={lineasCalc} res={res} extras={Number(extras)||0}
+      folio={folio} descripcion={descripcion} nota={nota}
+      cliente={{ nombre:clienteNombre, empresa:clienteEmpresa, email:clienteEmail, tel:clienteTel, ciudad:clienteCiudad, rfc:clienteRFC, razonSocial:clienteRazon, direccionFiscal:clienteDirFiscal }}
+      cond={{ entrega, pago, validez }}
+      moneda={moneda} tc={tc} idioma={idioma}
+      t={t} onCerrar={()=>setShowVistaCliente(false)}
+    />
+  );
 
   return (
     <div>
-      {/* Info cliente */}
+      {/* Selector de cliente */}
+      {showSelectorCli && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }} onClick={()=>setShowSelectorCli(false)}>
+          <div style={{ background:t.card, borderRadius:14, padding:28, width:520, maxHeight:"80vh", display:"flex", flexDirection:"column", border:`1px solid ${t.border}` }} onClick={(e:any)=>e.stopPropagation()}>
+            <div style={{ fontWeight:700, fontSize:16, color:t.text, marginBottom:14 }}>👥 Seleccionar cliente</div>
+            <input style={{ ...inp, marginBottom:12 }} placeholder="Buscar por nombre o empresa…" value={buscaCli} onChange={e=>setBuscaCli(e.target.value)} />
+            <div style={{ overflowY:"auto", flex:1 }}>
+              {(datos.clientes||[]).length === 0
+                ? <div style={{ textAlign:"center", padding:40, color:t.textSub }}>Sin clientes en catálogo. Guarda uno desde esta pantalla.</div>
+                : (datos.clientes||[]).filter((c: any) => {
+                    const q = buscaCli.toLowerCase();
+                    return !q || (c.empresa||"").toLowerCase().includes(q) || (c.nombre||"").toLowerCase().includes(q);
+                  }).map((c: any) => (
+                    <div key={c.id} onClick={()=>cargarCliente(c)} style={{ padding:"12px 14px", borderRadius:8, border:`1px solid ${t.border}`, marginBottom:8, cursor:"pointer", background:t.input }}>
+                      <div style={{ fontWeight:600, color:t.text }}>{c.empresa||"Sin empresa"}</div>
+                      {c.nombre && <div style={{ fontSize:12, color:t.textSub }}>{c.nombre}</div>}
+                      {c.rfc    && <div style={{ fontSize:11, color:t.textSub }}>RFC: {c.rfc}</div>}
+                      {c.ciudad && <div style={{ fontSize:11, color:t.textSub }}>{c.ciudad}</div>}
+                    </div>
+                  ))
+              }
+            </div>
+            <button onClick={()=>setShowSelectorCli(false)} style={{ marginTop:14, padding:"8px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.textSub, cursor:"pointer" }}>Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Datos del cliente */}
       <div style={card}>
-        <div style={{ fontWeight: 700, marginBottom: 16, fontSize: tamFuente + 1 }}>📋 Datos de la Cotización</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div><label style={label}>Folio</label><input style={inp} value={folio} onChange={e => setFolio(e.target.value)} /></div>
-          <div><label style={label}>Cliente</label><input style={inp} value={cliente} onChange={e => setCliente(e.target.value)} placeholder="Nombre del cliente o empresa" /></div>
-          <div style={{ gridColumn: "1/-1" }}><label style={label}>Descripción del trabajo</label><input style={inp} value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Ej: Fabricación de eje de transmisión AISI 1018" /></div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>👤 Datos del Cliente</div>
+          <button onClick={()=>setShowSelectorCli(true)} style={{ padding:"7px 14px", borderRadius:8, border:`1px solid ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:13 }}>
+            📋 Cargar del catálogo
+          </button>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+          <div><label style={label}>Empresa *</label><input style={inp} value={clienteEmpresa} onChange={e=>setClienteEmpresa(e.target.value)} placeholder="Nombre de la empresa"/></div>
+          <div><label style={label}>Contacto</label><input style={inp} value={clienteNombre} onChange={e=>setClienteNombre(e.target.value)} placeholder="Nombre del contacto"/></div>
+          <div><label style={label}>Email</label><input style={inp} value={clienteEmail} onChange={e=>setClienteEmail(e.target.value)} placeholder="correo@empresa.com"/></div>
+          <div><label style={label}>Teléfono</label><input style={inp} value={clienteTel} onChange={e=>setClienteTel(e.target.value)} placeholder="+52 899 000 0000"/></div>
+          <div><label style={label}>Ciudad</label><input style={inp} value={clienteCiudad} onChange={e=>setClienteCiudad(e.target.value)} placeholder="Reynosa, Tamps."/></div>
+        </div>
+        {/* Datos fiscales */}
+        <div style={{ background:t.input, borderRadius:8, padding:14, marginBottom:8 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textSub, textTransform:"uppercase" as const, letterSpacing:"0.07em", marginBottom:10 }}>🏛 Datos Fiscales (opcional)</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <div><label style={label}>RFC</label><input style={inp} value={clienteRFC} onChange={e=>setClienteRFC(e.target.value.toUpperCase())} placeholder="RFC del cliente"/></div>
+            <div><label style={label}>Razón Social</label><input style={inp} value={clienteRazon} onChange={e=>setClienteRazon(e.target.value)} placeholder="Razón social completa"/></div>
+            <div style={{ gridColumn:"1/-1" }}><label style={label}>Dirección Fiscal</label><input style={inp} value={clienteDirFiscal} onChange={e=>setClienteDirFiscal(e.target.value)} placeholder="Calle, Colonia, C.P., Ciudad"/></div>
+          </div>
+        </div>
+        {clienteEmpresa && (
+          <button onClick={guardarClienteEnCatalogo} style={{ fontSize:12, padding:"5px 12px", borderRadius:7, border:`1px solid ${t.success}`, background:"transparent", color:t.success, cursor:"pointer" }}>
+            💾 Guardar en catálogo de clientes
+          </button>
+        )}
+      </div>
+
+      {/* Datos de la cotización */}
+      <div style={card}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>📋 Datos de la Cotización</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12 }}>
+          <div><label style={label}>Folio</label><input style={inp} value={folio} onChange={e=>setFolio(e.target.value)}/></div>
+          <div><label style={label}>Validez</label>
+            <select style={inp} value={validez} onChange={e=>setValidez(Number(e.target.value))}>
+              {[15,30,60,90].map(d=><option key={d} value={d}>{d} días</option>)}
+            </select>
+          </div>
+          <div><label style={label}>Moneda</label>
+            <select style={inp} value={moneda} onChange={e=>setMoneda(e.target.value)}>
+              {Object.values(MONEDAS).map(m=><option key={m.id} value={m.id}>{m.flag} {m.id} — {m.label}</option>)}
+            </select>
+          </div>
+          <div><label style={label}>Tiempo de Entrega</label><input style={inp} value={entrega} onChange={e=>setEntrega(e.target.value)} placeholder="Ej: 10 días hábiles"/></div>
+          <div><label style={label}>Condiciones de Pago</label><input style={inp} value={pago} onChange={e=>setPago(e.target.value)}/></div>
+          <div><label style={label}>Idioma del PDF</label>
+            <select style={inp} value={idioma} onChange={e=>setIdioma(e.target.value)}>
+              <option value="es">🇲🇽 Español</option>
+              <option value="en">🇺🇸 English</option>
+            </select>
+          </div>
+          {moneda !== "MXN" && (
+            <div><label style={label}>T.C. USD → MXN</label><input type="number" style={inp} value={tc} min={1} step={0.1} onChange={e=>setTc(Number(e.target.value))}/></div>
+          )}
+          <div style={{ gridColumn:"1/-1" }}><label style={label}>Descripción del trabajo</label><input style={inp} value={descripcion} onChange={e=>setDescripcion(e.target.value)} placeholder="Ej: Fabricación de eje de transmisión AISI 1018"/></div>
         </div>
       </div>
 
-      {/* Líneas */}
+      {/* Partidas */}
       <div style={card}>
-        <div style={{ fontWeight: 700, marginBottom: 16, fontSize: tamFuente + 1 }}>🔩 Partidas del trabajo</div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: tamFuente }}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>🔩 Partidas del trabajo</div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:tamFuente }}>
             <thead>
-              <tr style={{ color: t.textSub }}>
-                {["Proceso", "Material", "Horas", "Kg / Pzas", "Labor", "Material", "Subtotal", ""].map(h => (
-                  <th key={h} style={{ padding: "8px 10px", textAlign: h === "" ? "center" : "left", fontWeight: 600, borderBottom: `1px solid ${t.border}` }}>{h}</th>
+              <tr style={{ color:t.textSub }}>
+                {["Proceso","Material","Horas","Kg/Pzas","Labor","Material","Subtotal",""].map(h=>(
+                  <th key={h} style={{ padding:"8px 10px", textAlign:"left", fontWeight:600, borderBottom:`1px solid ${t.border}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {lineasCalc.map(l => (
+              {lineasCalc.map((l: any) => (
                 <tr key={l.id}>
-                  <td style={{ padding: "8px 6px" }}>
-                    <select style={{ ...sel, minWidth: 140 }} value={l.proceso} onChange={e => cambiarLinea(l.id, "proceso", e.target.value)}>
+                  <td style={{ padding:"8px 6px" }}>
+                    <select style={{ ...inp, minWidth:140 }} value={l.proceso} onChange={e=>cambiarLinea(l.id,"proceso",e.target.value)}>
                       <option value="">Seleccionar…</option>
-                      {datos.procesos.map(p => <option key={p.id} value={p.nombre}>{p.nombre}</option>)}
+                      {datos.procesos.map((p: any)=><option key={p.id} value={p.nombre}>{p.nombre}</option>)}
                     </select>
                   </td>
-                  <td style={{ padding: "8px 6px" }}>
-                    <select style={{ ...sel, minWidth: 160 }} value={l.material} onChange={e => cambiarLinea(l.id, "material", e.target.value)}>
+                  <td style={{ padding:"8px 6px" }}>
+                    <select style={{ ...inp, minWidth:160 }} value={l.material} onChange={e=>cambiarLinea(l.id,"material",e.target.value)}>
                       <option value="">Seleccionar…</option>
-                      {datos.materiales.map(m => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+                      {datos.materiales.map((m: any)=><option key={m.id} value={m.nombre}>{m.nombre}</option>)}
                     </select>
                   </td>
-                  <td style={{ padding: "8px 6px" }}><input type="number" style={{ ...inp, width: 70 }} value={l.horas} min={0} onChange={e => cambiarLinea(l.id, "horas", parseFloat(e.target.value) || 0)} /></td>
-                  <td style={{ padding: "8px 6px" }}><input type="number" style={{ ...inp, width: 70 }} value={l.kg} min={0} onChange={e => cambiarLinea(l.id, "kg", parseFloat(e.target.value) || 0)} /></td>
-                  <td style={{ padding: "8px 10px", color: t.textSub }}>{fmt(l.labor)}</td>
-                  <td style={{ padding: "8px 10px", color: t.textSub }}>{fmt(l.material)}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 700 }}>{fmt(l.subtotal)}</td>
-                  <td style={{ padding: "8px 6px", textAlign: "center" }}>
-                    <button onClick={() => eliminarLinea(l.id)} style={{ background: "none", border: "none", color: t.danger, cursor: "pointer", fontSize: 18 }}>×</button>
-                  </td>
+                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:70 }} value={l.horas} min={0} onChange={e=>cambiarLinea(l.id,"horas",parseFloat(e.target.value)||0)}/></td>
+                  <td style={{ padding:"8px 6px" }}><input type="number" style={{ ...inp, width:70 }} value={l.kg} min={0} onChange={e=>cambiarLinea(l.id,"kg",parseFloat(e.target.value)||0)}/></td>
+                  <td style={{ padding:"8px 10px", color:t.textSub }}>{fmtMXN(l.labor)}</td>
+                  <td style={{ padding:"8px 10px", color:t.textSub }}>{fmtMXN(l.material)}</td>
+                  <td style={{ padding:"8px 10px", fontWeight:700 }}>{fmtMXN(l.subtotal)}</td>
+                  <td style={{ padding:"8px 6px" }}><button onClick={()=>eliminarLinea(l.id)} style={{ background:"none", border:"none", color:t.danger, cursor:"pointer", fontSize:18 }}>×</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 12, alignItems: "center" }}>
-          <button onClick={agregarLinea} style={{ padding: "8px 16px", borderRadius: 8, border: `1px dashed ${t.border}`, background: "transparent", color: t.accent, cursor: "pointer", fontSize: tamFuente }}>
-            + Agregar partida
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-            <label style={{ ...label, margin: 0 }}>Extras / Fletes:</label>
-            <input type="number" style={{ ...inp, width: 120 }} value={extras} min={0} onChange={e => setExtras(e.target.value)} />
+        <div style={{ display:"flex", gap:12, marginTop:12, alignItems:"center" }}>
+          <button onClick={agregarLinea} style={{ padding:"8px 16px", borderRadius:8, border:`1px dashed ${t.border}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:tamFuente }}>+ Agregar partida</button>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
+            <label style={{ ...label, margin:0 }}>Extras/Fletes:</label>
+            <input type="number" style={{ ...inp, width:120 }} value={extras} min={0} onChange={e=>setExtras(Number(e.target.value))}/>
           </div>
         </div>
       </div>
 
       {/* Resumen */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
         <div style={card}>
-          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: tamFuente + 1 }}>📊 Desglose de costos</div>
+          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>📊 Desglose de costos (MXN)</div>
           {[
-            ["Labor total", res.costoDirecto - totalMaterial],
-            ["Material total", totalMaterial],
-            ["Extras / Fletes", Number(extras) || 0],
-            ["Costo Directo", res.costoDirecto],
-            [`Gastos Directos (${pctGD}%)`, res.gastosDirectos],
-            [`Gastos SGV (${pctSGV}%)`, res.gastosSGV],
-            ["Costo Empresa", res.costoEmpresa],
-          ].map(([k, v]) => (
-            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}`, fontSize: tamFuente }}>
-              <span style={{ color: t.textSub }}>{k}</span>
-              <span>{fmt(v)}</span>
+            ["Labor total",               totalLabor],
+            ["Material total",            totalMaterial],
+            ["Extras / Fletes",           Number(extras)||0],
+            ["Costo Directo",             res.costoDirecto],
+            [`Gastos Directos (${pctGD}%)`,res.gastosDirectos],
+            [`Gastos SGV (${pctSGV}%)`,   res.gastosSGV],
+            ["Costo Empresa",             res.costoEmpresa],
+          ].map(([k,v])=>(
+            <div key={String(k)} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}`, fontSize:tamFuente }}>
+              <span style={{ color:t.textSub }}>{k}</span><span>{fmtMXN(v as number)}</span>
             </div>
           ))}
         </div>
-
         <div style={card}>
-          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: tamFuente + 1 }}>💰 Resultado</div>
-          <div style={{ background: t.input, borderRadius: 10, padding: 20, marginBottom: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 12, color: t.textSub, marginBottom: 4 }}>PRECIO DE VENTA</div>
-            <div style={{ fontSize: 36, fontWeight: 800, color: t.accent }}>{fmt(res.precioVenta)}</div>
-            <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>MXN</div>
+          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>💰 Resultado</div>
+          <div style={{ background:t.input, borderRadius:10, padding:20, marginBottom:16, textAlign:"center" }}>
+            <div style={{ fontSize:12, color:t.textSub, marginBottom:4 }}>PRECIO DE VENTA</div>
+            <div style={{ fontSize:36, fontWeight:800, color:t.accent }}>{fmt2(res.precioVenta)}</div>
+            <div style={{ fontSize:12, color:t.textSub, marginTop:4 }}>{moneda}{moneda!=="MXN"?` · ${fmtMXN(res.precioVenta)} MXN`:""}</div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}` }}>
-            <span style={{ color: t.textSub }}>Utilidad</span><span style={{ color: t.success, fontWeight: 700 }}>{fmt(res.utilidad)}</span>
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}` }}>
+            <span style={{ color:t.textSub }}>Utilidad</span><span style={{ color:t.success, fontWeight:700 }}>{fmtMXN(res.utilidad)}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${t.border}` }}>
-            <span style={{ color: t.textSub }}>Margen real</span><span style={{ color: t.success, fontWeight: 700 }}>{res.margenReal.toFixed(1)}%</span>
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}` }}>
+            <span style={{ color:t.textSub }}>Margen real</span><span style={{ color:t.success, fontWeight:700 }}>{res.margenReal.toFixed(1)}%</span>
           </div>
-          <div style={{ marginTop: 16 }}>
-            <label style={label}>Nota para el cliente (opcional)</label>
-            <textarea style={{ ...inp, height: 70, resize: "vertical" }} value={nota} onChange={e => setNota(e.target.value)} placeholder="Ej: Tiempo de entrega 5 días hábiles" />
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}` }}>
+            <span style={{ color:t.textSub }}>Total + IVA (16%)</span><span style={{ fontWeight:700 }}>{fmt2(res.precioVenta*1.16)}</span>
           </div>
-          <button onClick={guardarCotizacion} style={{
-            width: "100%", marginTop: 16, padding: "13px 0", borderRadius: 8,
-            border: "none", background: t.accent, color: "#fff", fontWeight: 700,
-            fontSize: tamFuente + 1, cursor: "pointer",
-          }}>
-            💾 Guardar Cotización
-          </button>
+          <div style={{ marginTop:14 }}>
+            <label style={label}>Nota para el cliente</label>
+            <textarea style={{ ...inp, height:60, resize:"vertical" as const }} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Ej: Tiempo de entrega 5 días hábiles"/>
+          </div>
+          <div style={{ display:"flex", gap:10, marginTop:14 }}>
+            <button onClick={()=>setShowVistaCliente(true)} style={{ flex:1, padding:"11px 0", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.text, cursor:"pointer", fontWeight:600, fontSize:tamFuente }}>
+              🖨 Vista / PDF
+            </button>
+            <button onClick={guardarCotizacion} style={{ flex:2, padding:"11px 0", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, fontSize:tamFuente, cursor:"pointer" }}>
+              💾 {txCot.guardar}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -525,45 +626,355 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: MIS COTIZACIONES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaLista({ datos, actualizarDatos, t, tamFuente }) {
+function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx }: any) {
+  const [editando, setEditando]         = useState<any>(null);
+  const [showVista, setShowVista]       = useState<any>(null);
   const cots = datos.cotizaciones || [];
 
-  function eliminar(id) {
+  function eliminar(id: number) {
     if (!confirm("¿Eliminar esta cotización?")) return;
-    actualizarDatos({ cotizaciones: cots.filter(c => c.id !== id) });
+    actualizarDatos({ cotizaciones: cots.filter((c: any) => c.id !== id) });
   }
 
+  function guardarEdicion(id: number, cambios: any) {
+    actualizarDatos({ cotizaciones: cots.map((c: any) => c.id===id ? {...c,...cambios} : c) });
+    setEditando(null);
+  }
+
+  if (showVista) return (
+    <VistaPDF
+      datos={datos} lineasCalc={showVista.lineas} res={calcular(
+        showVista.lineas.reduce((s: number, l: any) => s+l.labor, 0),
+        showVista.lineas.reduce((s: number, l: any) => s+l.material, 0),
+        showVista.extras||0,
+        showVista.config?.pctGD||35,
+        showVista.config?.pctSGV||15,
+        showVista.config?.pctMargen||25,
+      )}
+      extras={showVista.extras||0}
+      folio={showVista.folio} descripcion={showVista.descripcion} nota={showVista.nota}
+      cliente={showVista.cliente||{}} cond={showVista.cond||{}}
+      moneda={showVista.config?.moneda||"MXN"}
+      tc={showVista.config?.tc||17.5}
+      idioma={showVista.config?.idioma||"es"}
+      t={t} onCerrar={()=>setShowVista(null)}
+    />
+  );
+
   if (cots.length === 0) return (
-    <div style={{ textAlign: "center", padding: 60, color: t.textSub }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>📁</div>
-      <div style={{ fontSize: 18, fontWeight: 600 }}>Sin cotizaciones aún</div>
-      <div style={{ marginTop: 8, fontSize: 14 }}>Ve a "Nueva Cotización" para empezar</div>
+    <div style={{ textAlign:"center", padding:60, color:t.textSub }}>
+      <div style={{ fontSize:48, marginBottom:16 }}>📁</div>
+      <div style={{ fontSize:18, fontWeight:600, color:t.text }}>Sin cotizaciones aún</div>
+      <div style={{ marginTop:8, fontSize:14 }}>Ve a "{tx.nuevaCot}" para empezar</div>
     </div>
   );
 
   return (
     <div>
-      <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>📁 Mis Cotizaciones ({cots.length})</div>
-      {cots.map(c => (
-        <div key={c.id} style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 20, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: tamFuente + 1 }}>{c.folio} — {c.cliente || "Sin cliente"}</div>
-              <div style={{ color: t.textSub, fontSize: tamFuente - 1, marginTop: 4 }}>{c.descripcion}</div>
-              <div style={{ color: t.textSub, fontSize: tamFuente - 1, marginTop: 2 }}>📅 {c.fecha}</div>
+      <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>📁 {tx.misCots} ({cots.length})</div>
+      {cots.map((c: any) => (
+        <div key={c.id} style={{ background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:20, marginBottom:14 }}>
+          {editando?.id === c.id ? (
+            <EditarCotizacion cot={c} t={t} tamFuente={tamFuente} onGuardar={(cambios: any)=>guardarEdicion(c.id,cambios)} onCancelar={()=>setEditando(null)}/>
+          ) : (
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap" as const, gap:12 }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:tamFuente+1, color:t.text }}>{c.folio} — {c.cliente?.empresa||c.cliente||"Sin cliente"}</div>
+                {c.cliente?.nombre && <div style={{ color:t.textSub, fontSize:tamFuente-1 }}>Contacto: {c.cliente.nombre}</div>}
+                {c.descripcion     && <div style={{ color:t.textSub, fontSize:tamFuente-1, marginTop:4 }}>{c.descripcion}</div>}
+                <div style={{ color:t.textSub, fontSize:tamFuente-1, marginTop:2 }}>📅 {c.fecha}</div>
+                {c.cond?.entrega   && <div style={{ color:t.textSub, fontSize:tamFuente-1 }}>⏱ {c.cond.entrega}</div>}
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:22, fontWeight:800, color:t.accent }}>{fmtMXN(c.precioVenta)}</div>
+                <div style={{ fontSize:12, color:t.success }}>Utilidad: {fmtMXN(c.utilidad)} · {c.margenReal?.toFixed(1)}%</div>
+                <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:10, flexWrap:"wrap" as const }}>
+                  <button onClick={()=>setShowVista(c)} style={{ padding:"5px 12px", borderRadius:6, border:`1px solid ${t.border}`, background:"transparent", color:t.textSub, cursor:"pointer", fontSize:12 }}>🖨 PDF</button>
+                  <button onClick={()=>setEditando(c)} style={{ padding:"5px 12px", borderRadius:6, border:`1px solid ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:12 }}>✏️ Editar</button>
+                  <button onClick={()=>eliminar(c.id)} style={{ padding:"5px 12px", borderRadius:6, border:`1px solid ${t.danger}`, background:"transparent", color:t.danger, cursor:"pointer", fontSize:12 }}>Eliminar</button>
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: t.accent }}>{fmt(c.precioVenta)}</div>
-              <div style={{ fontSize: 12, color: t.success }}>Utilidad: {fmt(c.utilidad)} · {c.margenReal?.toFixed(1)}%</div>
-              <button onClick={() => eliminar(c.id)} style={{
-                marginTop: 10, padding: "5px 12px", borderRadius: 6,
-                border: `1px solid ${t.danger}`, background: "transparent",
-                color: t.danger, cursor: "pointer", fontSize: 12,
-              }}>Eliminar</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── EDITOR DE COTIZACIÓN GUARDADA ────────────────────────────────────────────
+function EditarCotizacion({ cot, t, tamFuente, onGuardar, onCancelar }: any) {
+  const [folio,       setFolio]       = useState(cot.folio||"");
+  const [descripcion, setDescripcion] = useState(cot.descripcion||"");
+  const [nota,        setNota]        = useState(cot.nota||"");
+  const [entrega,     setEntrega]     = useState(cot.cond?.entrega||"");
+  const [pago,        setPago]        = useState(cot.cond?.pago||"");
+  const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"8px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
+  const label = { fontSize:tamFuente-1, color:t.textSub, marginBottom:4, display:"block" };
+
+  return (
+    <div>
+      <div style={{ fontWeight:700, color:t.text, marginBottom:12 }}>✏️ Editando {cot.folio}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+        <div><label style={label}>Folio</label><input style={inp} value={folio} onChange={e=>setFolio(e.target.value)}/></div>
+        <div><label style={label}>Entrega</label><input style={inp} value={entrega} onChange={e=>setEntrega(e.target.value)}/></div>
+        <div style={{ gridColumn:"1/-1" }}><label style={label}>Descripción</label><input style={inp} value={descripcion} onChange={e=>setDescripcion(e.target.value)}/></div>
+        <div><label style={label}>Condiciones de pago</label><input style={inp} value={pago} onChange={e=>setPago(e.target.value)}/></div>
+        <div><label style={label}>Nota al cliente</label><input style={inp} value={nota} onChange={e=>setNota(e.target.value)}/></div>
+      </div>
+      <div style={{ display:"flex", gap:10 }}>
+        <button onClick={()=>onGuardar({ folio, descripcion, nota, cond:{ ...cot.cond, entrega, pago } })} style={{ padding:"8px 18px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer", fontSize:tamFuente }}>Guardar cambios</button>
+        <button onClick={onCancelar} style={{ padding:"8px 14px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.textSub, cursor:"pointer", fontSize:tamFuente }}>Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VISTA PDF / CLIENTE
+// ═══════════════════════════════════════════════════════════════════════════════
+function VistaPDF({ datos, lineasCalc, res, extras, folio, descripcion, nota, cliente, cond, moneda, tc, idioma, t, onCerrar }: any) {
+  const txPDF   = T18N[idioma] || T18N.es;
+  const fmt2    = (n: number) => fmtMoneda(convertirMoneda(n, moneda, tc), moneda);
+  const mLabel  = moneda !== "MXN" ? moneda : "MXN";
+  const tallerNombre = datos.taller?.razonSocial || datos.taller?.nombre || "Taller de Maquinado Industrial";
+  const totalVenta   = res.precioVenta;
+  const plantilla    = datos.plantillaPDF || "formal";
+
+  const estilosComunes = {
+    wrapper: { background:"white", maxWidth:860, margin:"0 auto", padding:"48px 52px", borderRadius:12 } as const,
+    tabla: { width:"100%", borderCollapse:"collapse" as const },
+    th:    { padding:"9px 12px", textAlign:"left" as const, fontSize:11, fontWeight:700, textTransform:"uppercase" as const, letterSpacing:"0.05em" },
+    td:    { padding:"11px 12px", fontSize:13 },
+    totalBox: { display:"flex", justifyContent:"space-between", padding:"12px 16px", borderRadius:8, marginTop:8, fontSize:16, fontWeight:800, color:"white" } as const,
+  };
+
+  return (
+    <div>
+      <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:20, flexWrap:"wrap" as const }} data-noprint>
+        <button onClick={onCerrar} style={{ padding:"7px 14px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.text, cursor:"pointer" }}>← Volver</button>
+        <button onClick={()=>window.print()} style={{ padding:"7px 16px", borderRadius:8, border:"none", background:t.accent, color:"#fff", cursor:"pointer", fontWeight:700 }}>🖨 Imprimir / PDF</button>
+        <span style={{ fontSize:11, color:t.textSub }}>Plantilla: {plantilla} · {MONEDAS[moneda]?.flag} {moneda} · {idioma==="en"?"English":"Español"}</span>
+        {moneda !== "MXN" && <span style={{ fontSize:11, color:t.textSub }}>T.C.: 1 USD = ${tc} MXN</span>}
+      </div>
+
+      <div className="print-doc" style={{ ...estilosComunes.wrapper, border: plantilla==="industrial"?"none":"1px solid #e2e8f0", background: plantilla==="industrial"?"#0f1923":"white", color: plantilla==="industrial"?"#e8eaf0":"#1a1d27", boxShadow:"0 4px 24px rgba(0,0,0,0.08)" }}>
+        {/* ENCABEZADO */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:36, paddingBottom:24, borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"3px solid #1a1d27" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+            {datos.taller?.logo && <img src={datos.taller.logo} alt="logo" style={{ height:56, maxWidth:110, objectFit:"contain" }}/>}
+            <div>
+              <div style={{ fontSize:18, fontWeight:800 }}>{tallerNombre}</div>
+              {datos.taller?.rfc            && <div style={{ fontSize:11, color: plantilla==="industrial"?"#7DCFB6":"#64748b", marginTop:2 }}>RFC: {datos.taller.rfc}</div>}
+              {datos.taller?.direccionFiscal && <div style={{ fontSize:11, color:"#94a3b8", marginTop:1 }}>{datos.taller.direccionFiscal}</div>}
+              {datos.taller?.telefono        && <div style={{ fontSize:12, color:"#94a3b8", marginTop:2 }}>Tel: {datos.taller.telefono}</div>}
+              {datos.taller?.email           && <div style={{ fontSize:12, color:"#94a3b8" }}>Email: {datos.taller.email}</div>}
+            </div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:28, fontWeight:800, letterSpacing:"-0.5px", color: plantilla==="industrial"?"#f97316":undefined }}>{txPDF.cotizacion}</div>
+            <div style={{ marginTop:6, fontSize:14, fontWeight:700, background: plantilla==="industrial"?"#f97316":"#1a1d27", color:"white", padding:"3px 12px", borderRadius:4, display:"inline-block" }}>{folio}</div>
+            <div style={{ fontSize:12, color:"#94a3b8", marginTop:4 }}>Fecha: {new Date().toLocaleDateString("es-MX")} · {txPDF.vigencia}: {cond.validez||30} {txPDF.dias}</div>
+            {moneda !== "MXN" && <div style={{ fontSize:11, color:"#f97316", marginTop:2 }}>T.C.: 1 USD = ${tc} MXN</div>}
+          </div>
+        </div>
+
+        {/* CLIENTE + CONDICIONES */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24, marginBottom:28 }}>
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:"#94a3b8", textTransform:"uppercase" as const, letterSpacing:"0.1em", marginBottom:8 }}>{txPDF.cliente}</div>
+            <div style={{ fontWeight:700, fontSize:15 }}>{cliente.razonSocial || cliente.empresa || "—"}</div>
+            {cliente.rfc            && <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>RFC: {cliente.rfc}</div>}
+            {cliente.direccionFiscal && <div style={{ fontSize:11, color:"#94a3b8", marginTop:1 }}>{cliente.direccionFiscal}</div>}
+            {cliente.nombre         && <div style={{ fontSize:13, color:"#64748b", marginTop:3 }}>{txPDF.attn} {cliente.nombre}</div>}
+            {cliente.email          && <div style={{ fontSize:12, color:"#64748b" }}>{cliente.email}</div>}
+            {cliente.tel            && <div style={{ fontSize:12, color:"#64748b" }}>{cliente.tel}</div>}
+            {cliente.ciudad         && <div style={{ fontSize:12, color:"#64748b" }}>{cliente.ciudad}</div>}
+          </div>
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:"#94a3b8", textTransform:"uppercase" as const, letterSpacing:"0.1em", marginBottom:8 }}>{txPDF.condiciones}</div>
+            <div style={{ fontSize:13, color:"#64748b", lineHeight:1.9 }}>
+              ⏱ {txPDF.entrega}: {cond.entrega || txPDF.porConfirmar}<br/>
+              💳 {txPDF.pago}: {cond.pago || "—"}<br/>
+              📅 {txPDF.vigencia}: {cond.validez||30} {txPDF.dias}
             </div>
           </div>
         </div>
-      ))}
+
+        {/* DESCRIPCIÓN */}
+        {descripcion && <div style={{ background: plantilla==="industrial"?"#0D1B2A":"#f8fafc", borderRadius:8, padding:"10px 14px", marginBottom:20, fontSize:13, color:"#64748b" }}><strong>Trabajo: </strong>{descripcion}</div>}
+
+        {/* TABLA */}
+        <table style={estilosComunes.tabla}>
+          <thead>
+            <tr style={{ borderBottom: plantilla==="industrial"?"2px solid #f97316":"2px solid #e2e8f0" }}>
+              {["#", txPDF.descripcion, txPDF.cant, "Hrs", txPDF.pUnitario, txPDF.total].map((h,i)=>(
+                <th key={i} style={{ ...estilosComunes.th, textAlign: i>=4?"right" as const: i===0||i===2?"center" as const:"left" as const, color: plantilla==="industrial"?"#f97316":"#64748b" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lineasCalc.map((l: any, i: number) => (
+              <tr key={l.id||i} style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #f1f5f9", background: i%2===0&&plantilla!=="industrial"?"#f8fafc":"transparent" }}>
+                <td style={{ ...estilosComunes.td, textAlign:"center" as const, color:"#94a3b8" }}>{i+1}</td>
+                <td style={estilosComunes.td}>
+                  <div style={{ fontWeight:600 }}>{l.proceso||"—"}</div>
+                  {l.material && <div style={{ fontSize:11, color:"#94a3b8" }}>{l.material}{l.kg?` · ${l.kg} kg`:""}</div>}
+                </td>
+                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>1</td>
+                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>{l.horas}h</td>
+                <td style={{ ...estilosComunes.td, textAlign:"right" as const, color:"#64748b" }}>{fmt2(l.subtotal)}</td>
+                <td style={{ ...estilosComunes.td, textAlign:"right" as const, fontWeight:700 }}>{fmt2(l.subtotal)}</td>
+              </tr>
+            ))}
+            {extras > 0 && (
+              <tr style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #f1f5f9" }}>
+                <td style={{ ...estilosComunes.td, textAlign:"center" as const, color:"#94a3b8" }}>+</td>
+                <td style={estilosComunes.td}><div style={{ fontWeight:600 }}>Extras / Fletes</div></td>
+                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>1</td>
+                <td style={{ ...estilosComunes.td, textAlign:"center" as const }}>—</td>
+                <td style={{ ...estilosComunes.td, textAlign:"right" as const }}>{fmt2(extras)}</td>
+                <td style={{ ...estilosComunes.td, textAlign:"right" as const, fontWeight:700 }}>{fmt2(extras)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* TOTALES */}
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:16, marginBottom:24 }}>
+          <div style={{ width:300 }}>
+            {[{ l:txPDF.subtotal, v:totalVenta },{ l:"IVA (16%)", v:totalVenta*0.16 }].map(({l,v})=>(
+              <div key={l} style={{ display:"flex", justifyContent:"space-between", padding:"6px 0", borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #f1f5f9", fontSize:13, color:"#64748b" }}><span>{l}</span><span>{fmt2(v)}</span></div>
+            ))}
+            <div style={{ ...estilosComunes.totalBox, background: plantilla==="industrial"?"#f97316":"#1a1d27" }}>
+              <span>TOTAL {mLabel}</span><span>{fmt2(totalVenta*1.16)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* NOTAS */}
+        {nota && <div style={{ padding:"12px 16px", background: plantilla==="industrial"?"#0D1B2A":"#f8fafc", borderRadius:8, marginBottom:24, fontSize:13, color:"#64748b" }}><strong style={{ color: plantilla==="industrial"?"#7DCFB6":undefined }}>{txPDF.notas}: </strong>{nota}</div>}
+
+        {/* FIRMAS */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:40, paddingTop:24, borderTop: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #e2e8f0" }}>
+          {[txPDF.elaboro, txPDF.autorizo].map(lbl=>(
+            <div key={lbl} style={{ textAlign:"center" }}>
+              <div style={{ borderBottom: plantilla==="industrial"?"1px solid #1e3a5f":"1px solid #1a1d27", marginBottom:8, height:44 }}/>
+              <div style={{ fontSize:11, color:"#94a3b8", textTransform:"uppercase" as const, letterSpacing:"0.05em" }}>{lbl}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign:"center", color:"#cbd5e1", fontSize:10, marginTop:16 }}>CotizadorPRO Estándar · Sistema de Cotización Industrial</div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PESTAÑA: CATÁLOGO DE CLIENTES
+// ═══════════════════════════════════════════════════════════════════════════════
+function PestanaClientes({ datos, actualizarDatos, t, tamFuente }: any) {
+  const [nuevo, setNuevo]     = useState({ empresa:"", nombre:"", email:"", tel:"", ciudad:"", rfc:"", razonSocial:"", direccionFiscal:"" });
+  const [editId, setEditId]   = useState<number|null>(null);
+  const [busca, setBusca]     = useState("");
+  const clientes = datos.clientes || [];
+
+  const inp   = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
+  const label = { fontSize:tamFuente-1, color:t.textSub, marginBottom:4, display:"block" };
+
+  function agregar() {
+    if (!nuevo.empresa && !nuevo.nombre) return;
+    actualizarDatos({ clientes: [...clientes, { ...nuevo, id:Date.now(), creadoEn:new Date().toLocaleDateString("es-MX") }] });
+    setNuevo({ empresa:"", nombre:"", email:"", tel:"", ciudad:"", rfc:"", razonSocial:"", direccionFiscal:"" });
+  }
+
+  function eliminar(id: number) {
+    if (!confirm("¿Eliminar este cliente?")) return;
+    actualizarDatos({ clientes: clientes.filter((c: any) => c.id !== id) });
+  }
+
+  function guardarEdicion(id: number, datos2: any) {
+    actualizarDatos({ clientes: clientes.map((c: any) => c.id===id?{...c,...datos2}:c) });
+    setEditId(null);
+  }
+
+  const clientesFiltrados = clientes.filter((c: any) => {
+    const q = busca.toLowerCase();
+    return !q || (c.empresa||"").toLowerCase().includes(q) || (c.nombre||"").toLowerCase().includes(q) || (c.rfc||"").toLowerCase().includes(q);
+  });
+
+  return (
+    <div>
+      {/* Formulario nuevo cliente */}
+      <div style={{ background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24, marginBottom:20 }}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16, color:t.text }}>➕ Agregar cliente al catálogo</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+          <div><label style={label}>Empresa *</label><input style={inp} value={nuevo.empresa} onChange={e=>setNuevo(p=>({...p,empresa:e.target.value}))} placeholder="Nombre de la empresa"/></div>
+          <div><label style={label}>Contacto</label><input style={inp} value={nuevo.nombre} onChange={e=>setNuevo(p=>({...p,nombre:e.target.value}))} placeholder="Nombre del contacto"/></div>
+          <div><label style={label}>Email</label><input style={inp} value={nuevo.email} onChange={e=>setNuevo(p=>({...p,email:e.target.value}))} placeholder="correo@empresa.com"/></div>
+          <div><label style={label}>Teléfono</label><input style={inp} value={nuevo.tel} onChange={e=>setNuevo(p=>({...p,tel:e.target.value}))} placeholder="+52 899 000 0000"/></div>
+          <div><label style={label}>Ciudad</label><input style={inp} value={nuevo.ciudad} onChange={e=>setNuevo(p=>({...p,ciudad:e.target.value}))} placeholder="Monterrey, N.L."/></div>
+          <div><label style={label}>RFC</label><input style={inp} value={nuevo.rfc} onChange={e=>setNuevo(p=>({...p,rfc:e.target.value.toUpperCase()}))} placeholder="RFC del cliente"/></div>
+          <div><label style={label}>Razón Social</label><input style={inp} value={nuevo.razonSocial} onChange={e=>setNuevo(p=>({...p,razonSocial:e.target.value}))} placeholder="Razón social completa"/></div>
+          <div><label style={label}>Dirección Fiscal</label><input style={inp} value={nuevo.direccionFiscal} onChange={e=>setNuevo(p=>({...p,direccionFiscal:e.target.value}))} placeholder="Calle, Col., C.P., Ciudad"/></div>
+        </div>
+        <button onClick={agregar} style={{ padding:"9px 20px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer", fontSize:tamFuente }}>+ Agregar cliente</button>
+      </div>
+
+      {/* Lista */}
+      <div style={{ background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1, color:t.text }}>👥 Clientes ({clientes.length})</div>
+          <input style={{ ...inp, width:240 }} placeholder="Buscar…" value={busca} onChange={e=>setBusca(e.target.value)}/>
+        </div>
+        {clientesFiltrados.length === 0
+          ? <div style={{ textAlign:"center", padding:40, color:t.textSub }}>Sin clientes.</div>
+          : clientesFiltrados.map((c: any) => (
+              <div key={c.id} style={{ padding:"14px 0", borderBottom:`1px solid ${t.border}` }}>
+                {editId === c.id ? (
+                  <EditarCliente c={c} t={t} tamFuente={tamFuente} inp={inp} label={label}
+                    onGuardar={(d: any)=>guardarEdicion(c.id,d)} onCancelar={()=>setEditId(null)}/>
+                ) : (
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                    <div>
+                      <div style={{ fontWeight:700, color:t.text }}>{c.empresa||"Sin empresa"}</div>
+                      {c.nombre && <div style={{ fontSize:12, color:t.textSub }}>{c.nombre}</div>}
+                      {c.rfc    && <div style={{ fontSize:11, color:t.textSub }}>RFC: {c.rfc}</div>}
+                      {c.email  && <div style={{ fontSize:11, color:t.textSub }}>{c.email}</div>}
+                      {c.ciudad && <div style={{ fontSize:11, color:t.textSub }}>{c.ciudad}</div>}
+                    </div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={()=>setEditId(c.id)} style={{ padding:"4px 10px", borderRadius:6, border:`1px solid ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:12 }}>✏️ Editar</button>
+                      <button onClick={()=>eliminar(c.id)} style={{ padding:"4px 10px", borderRadius:6, border:`1px solid ${t.danger}`, background:"transparent", color:t.danger, cursor:"pointer", fontSize:12 }}>Eliminar</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+        }
+      </div>
+    </div>
+  );
+}
+
+function EditarCliente({ c, t, tamFuente, inp, label, onGuardar, onCancelar }: any) {
+  const [d, setD] = useState({ empresa:c.empresa||"", nombre:c.nombre||"", email:c.email||"", tel:c.tel||"", ciudad:c.ciudad||"", rfc:c.rfc||"", razonSocial:c.razonSocial||"", direccionFiscal:c.direccionFiscal||"" });
+  return (
+    <div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+        <div><label style={label}>Empresa</label><input style={inp} value={d.empresa} onChange={e=>setD(p=>({...p,empresa:e.target.value}))}/></div>
+        <div><label style={label}>Contacto</label><input style={inp} value={d.nombre} onChange={e=>setD(p=>({...p,nombre:e.target.value}))}/></div>
+        <div><label style={label}>Email</label><input style={inp} value={d.email} onChange={e=>setD(p=>({...p,email:e.target.value}))}/></div>
+        <div><label style={label}>Teléfono</label><input style={inp} value={d.tel} onChange={e=>setD(p=>({...p,tel:e.target.value}))}/></div>
+        <div><label style={label}>Ciudad</label><input style={inp} value={d.ciudad} onChange={e=>setD(p=>({...p,ciudad:e.target.value}))}/></div>
+        <div><label style={label}>RFC</label><input style={inp} value={d.rfc} onChange={e=>setD(p=>({...p,rfc:e.target.value.toUpperCase()}))}/></div>
+        <div><label style={label}>Razón Social</label><input style={inp} value={d.razonSocial} onChange={e=>setD(p=>({...p,razonSocial:e.target.value}))}/></div>
+        <div><label style={label}>Dir. Fiscal</label><input style={inp} value={d.direccionFiscal} onChange={e=>setD(p=>({...p,direccionFiscal:e.target.value}))}/></div>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={()=>onGuardar(d)} style={{ padding:"7px 16px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer", fontSize:tamFuente }}>Guardar</button>
+        <button onClick={onCancelar} style={{ padding:"7px 12px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.textSub, cursor:"pointer", fontSize:tamFuente }}>Cancelar</button>
+      </div>
     </div>
   );
 }
@@ -571,38 +982,34 @@ function PestanaLista({ datos, actualizarDatos, t, tamFuente }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: MATERIALES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaMateriales({ datos, actualizarDatos, t, tamFuente }) {
-  const [nuevo, setNuevo] = useState({ nombre: "", precio: "" });
-  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
+function PestanaMateriales({ datos, actualizarDatos, t, tamFuente }: any) {
+  const [nuevo, setNuevo] = useState({ nombre:"", precio:"" });
+  const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
 
   function agregar() {
     if (!nuevo.nombre || !nuevo.precio) return;
-    const lista = [...datos.materiales, { id: Date.now(), nombre: nuevo.nombre, precio: parseFloat(nuevo.precio) }];
-    actualizarDatos({ materiales: lista });
-    setNuevo({ nombre: "", precio: "" });
+    actualizarDatos({ materiales: [...datos.materiales, { id:Date.now(), nombre:nuevo.nombre, precio:parseFloat(nuevo.precio) }] });
+    setNuevo({ nombre:"", precio:"" });
   }
-
-  function eliminar(id) {
-    actualizarDatos({ materiales: datos.materiales.filter(m => m.id !== id) });
-  }
+  function eliminar(id: number) { actualizarDatos({ materiales: datos.materiales.filter((m: any) => m.id !== id) }); }
 
   return (
-    <div style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 24 }}>
-      <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>🔩 Catálogo de Materiales</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, marginBottom: 24 }}>
-        <input style={inp} placeholder="Nombre del material" value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} />
-        <input style={inp} type="number" placeholder="Precio por kg (MXN)" value={nuevo.precio} onChange={e => setNuevo(p => ({ ...p, precio: e.target.value }))} />
-        <button onClick={agregar} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: t.accent, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+ Agregar</button>
+    <div style={{ background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24 }}>
+      <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>🔩 Catálogo de Materiales</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:12, marginBottom:24 }}>
+        <input style={inp} placeholder="Nombre del material" value={nuevo.nombre} onChange={e=>setNuevo(p=>({...p,nombre:e.target.value}))}/>
+        <input style={inp} type="number" placeholder="Precio por kg (MXN)" value={nuevo.precio} onChange={e=>setNuevo(p=>({...p,precio:e.target.value}))}/>
+        <button onClick={agregar} style={{ padding:"9px 20px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer" }}>+ Agregar</button>
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: tamFuente }}>
-        <thead><tr style={{ color: t.textSub }}>
-          {["Material", "Precio/kg", ""].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: `1px solid ${t.border}`, fontWeight: 600 }}>{h}</th>)}
+      <table style={{ width:"100%", borderCollapse:"collapse" as const, fontSize:tamFuente }}>
+        <thead><tr style={{ color:t.textSub }}>
+          {["Material","Precio/kg",""].map(h=><th key={h} style={{ padding:"8px 12px", textAlign:"left" as const, borderBottom:`1px solid ${t.border}`, fontWeight:600 }}>{h}</th>)}
         </tr></thead>
-        <tbody>{datos.materiales.map(m => (
+        <tbody>{datos.materiales.map((m: any)=>(
           <tr key={m.id}>
-            <td style={{ padding: "10px 12px" }}>{m.nombre}</td>
-            <td style={{ padding: "10px 12px" }}>{fmt(m.precio)}</td>
-            <td style={{ padding: "10px 12px" }}><button onClick={() => eliminar(m.id)} style={{ background: "none", border: "none", color: t.danger, cursor: "pointer" }}>Eliminar</button></td>
+            <td style={{ padding:"10px 12px", color:t.text }}>{m.nombre}</td>
+            <td style={{ padding:"10px 12px", color:t.text }}>{fmtMXN(m.precio)}/kg</td>
+            <td style={{ padding:"10px 12px" }}><button onClick={()=>eliminar(m.id)} style={{ background:"none", border:"none", color:t.danger, cursor:"pointer" }}>Eliminar</button></td>
           </tr>
         ))}</tbody>
       </table>
@@ -613,38 +1020,34 @@ function PestanaMateriales({ datos, actualizarDatos, t, tamFuente }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: PROCESOS
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaProcesos({ datos, actualizarDatos, t, tamFuente }) {
-  const [nuevo, setNuevo] = useState({ nombre: "", tarifa: "" });
-  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
+function PestanaProcesos({ datos, actualizarDatos, t, tamFuente }: any) {
+  const [nuevo, setNuevo] = useState({ nombre:"", tarifa:"" });
+  const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
 
   function agregar() {
     if (!nuevo.nombre || !nuevo.tarifa) return;
-    const lista = [...datos.procesos, { id: Date.now(), nombre: nuevo.nombre, tarifa: parseFloat(nuevo.tarifa) }];
-    actualizarDatos({ procesos: lista });
-    setNuevo({ nombre: "", tarifa: "" });
+    actualizarDatos({ procesos: [...datos.procesos, { id:Date.now(), nombre:nuevo.nombre, tarifa:parseFloat(nuevo.tarifa) }] });
+    setNuevo({ nombre:"", tarifa:"" });
   }
-
-  function eliminar(id) {
-    actualizarDatos({ procesos: datos.procesos.filter(p => p.id !== id) });
-  }
+  function eliminar(id: number) { actualizarDatos({ procesos: datos.procesos.filter((p: any) => p.id !== id) }); }
 
   return (
-    <div style={{ background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 24 }}>
-      <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>⚙️ Catálogo de Procesos</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, marginBottom: 24 }}>
-        <input style={inp} placeholder="Nombre del proceso" value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} />
-        <input style={inp} type="number" placeholder="Tarifa por hora (MXN)" value={nuevo.tarifa} onChange={e => setNuevo(p => ({ ...p, tarifa: e.target.value }))} />
-        <button onClick={agregar} style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: t.accent, color: "#fff", fontWeight: 700, cursor: "pointer" }}>+ Agregar</button>
+    <div style={{ background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24 }}>
+      <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>⚙️ Catálogo de Procesos</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:12, marginBottom:24 }}>
+        <input style={inp} placeholder="Nombre del proceso" value={nuevo.nombre} onChange={e=>setNuevo(p=>({...p,nombre:e.target.value}))}/>
+        <input style={inp} type="number" placeholder="Tarifa por hora (MXN)" value={nuevo.tarifa} onChange={e=>setNuevo(p=>({...p,tarifa:e.target.value}))}/>
+        <button onClick={agregar} style={{ padding:"9px 20px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer" }}>+ Agregar</button>
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: tamFuente }}>
-        <thead><tr style={{ color: t.textSub }}>
-          {["Proceso / Máquina", "Tarifa/hr", ""].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: `1px solid ${t.border}`, fontWeight: 600 }}>{h}</th>)}
+      <table style={{ width:"100%", borderCollapse:"collapse" as const, fontSize:tamFuente }}>
+        <thead><tr style={{ color:t.textSub }}>
+          {["Proceso / Máquina","Tarifa/hr",""].map(h=><th key={h} style={{ padding:"8px 12px", textAlign:"left" as const, borderBottom:`1px solid ${t.border}`, fontWeight:600 }}>{h}</th>)}
         </tr></thead>
-        <tbody>{datos.procesos.map(p => (
+        <tbody>{datos.procesos.map((p: any)=>(
           <tr key={p.id}>
-            <td style={{ padding: "10px 12px" }}>{p.nombre}</td>
-            <td style={{ padding: "10px 12px" }}>{fmt(p.tarifa)}/hr</td>
-            <td style={{ padding: "10px 12px" }}><button onClick={() => eliminar(p.id)} style={{ background: "none", border: "none", color: t.danger, cursor: "pointer" }}>Eliminar</button></td>
+            <td style={{ padding:"10px 12px", color:t.text }}>{p.nombre}</td>
+            <td style={{ padding:"10px 12px", color:t.text }}>{fmtMXN(p.tarifa)}/hr</td>
+            <td style={{ padding:"10px 12px" }}><button onClick={()=>eliminar(p.id)} style={{ background:"none", border:"none", color:t.danger, cursor:"pointer" }}>Eliminar</button></td>
           </tr>
         ))}</tbody>
       </table>
@@ -655,16 +1058,15 @@ function PestanaProcesos({ datos, actualizarDatos, t, tamFuente }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaConfig({ datos, actualizarDatos, t, tamFuente }) {
-  const inp = { background: t.input, border: `1px solid ${t.border}`, borderRadius: 8, padding: "9px 12px", color: t.text, fontSize: tamFuente, width: "100%", outline: "none" };
-  const label = { fontSize: tamFuente - 1, color: t.textSub, marginBottom: 6, display: "block" };
-  const card = { background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, padding: 24, marginBottom: 20 };
+function PestanaConfig({ datos, actualizarDatos, t, tamFuente, tx }: any) {
+  const inp   = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
+  const label = { fontSize:tamFuente-1, color:t.textSub, marginBottom:6, display:"block" };
+  const card  = { background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24, marginBottom:20 };
 
-  function subirLogo(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+  function subirLogo(e: any) {
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => actualizarDatos({ taller: { ...datos.taller, logo: ev.target.result } });
+    reader.onload = (ev: any) => actualizarDatos({ taller:{ ...datos.taller, logo:ev.target.result } });
     reader.readAsDataURL(file);
   }
 
@@ -672,46 +1074,78 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente }) {
     <div>
       {/* Datos del taller */}
       <div style={card}>
-        <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>🏭 Datos del Taller</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div><label style={label}>Nombre del taller</label><input style={inp} value={datos.taller.nombre} onChange={e => actualizarDatos({ taller: { ...datos.taller, nombre: e.target.value } })} /></div>
-          <div><label style={label}>Teléfono</label><input style={inp} value={datos.taller.telefono} onChange={e => actualizarDatos({ taller: { ...datos.taller, telefono: e.target.value } })} /></div>
-          <div><label style={label}>Email</label><input style={inp} value={datos.taller.email} onChange={e => actualizarDatos({ taller: { ...datos.taller, email: e.target.value } })} /></div>
+        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>🏭 Datos del Taller</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
+          <div><label style={label}>Nombre del taller</label><input style={inp} value={datos.taller.nombre||""} onChange={e=>actualizarDatos({ taller:{...datos.taller,nombre:e.target.value} })}/></div>
+          <div><label style={label}>Teléfono</label><input style={inp} value={datos.taller.telefono||""} onChange={e=>actualizarDatos({ taller:{...datos.taller,telefono:e.target.value} })}/></div>
+          <div><label style={label}>Email</label><input style={inp} value={datos.taller.email||""} onChange={e=>actualizarDatos({ taller:{...datos.taller,email:e.target.value} })}/></div>
           <div>
             <label style={label}>Logo del taller</label>
-            <input type="file" accept="image/*" onChange={subirLogo} style={{ ...inp, padding: "6px 12px" }} />
-            {datos.taller.logo && <img src={datos.taller.logo} alt="logo" style={{ marginTop: 10, height: 50, borderRadius: 6 }} />}
+            <input type="file" accept="image/*" onChange={subirLogo} style={{ ...inp, padding:"6px 12px" }}/>
+            {datos.taller.logo && <img src={datos.taller.logo} alt="logo" style={{ marginTop:10, height:50, borderRadius:6 }}/>}
+          </div>
+        </div>
+        {/* Datos fiscales del taller */}
+        <div style={{ background:t.input, borderRadius:8, padding:16 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textSub, textTransform:"uppercase" as const, letterSpacing:"0.07em", marginBottom:12 }}>🏛 Datos Fiscales del Taller (aparecen en el PDF)</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div><label style={label}>RFC del taller</label><input style={inp} value={datos.taller.rfc||""} onChange={e=>actualizarDatos({ taller:{...datos.taller,rfc:e.target.value.toUpperCase()} })}/></div>
+            <div><label style={label}>Razón Social</label><input style={inp} value={datos.taller.razonSocial||""} onChange={e=>actualizarDatos({ taller:{...datos.taller,razonSocial:e.target.value} })}/></div>
+            <div style={{ gridColumn:"1/-1" }}><label style={label}>Dirección Fiscal</label><input style={inp} value={datos.taller.direccionFiscal||""} onChange={e=>actualizarDatos({ taller:{...datos.taller,direccionFiscal:e.target.value} })}/></div>
           </div>
         </div>
       </div>
 
       {/* Porcentajes */}
       <div style={card}>
-        <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>📊 Porcentajes de la Fórmula</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>📊 Porcentajes de la Fórmula</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
           {[
-            { key: "pctGD", label: "Gastos Directos %", default: 35 },
-            { key: "pctSGV", label: "Gastos SGV %", default: 15 },
-            { key: "pctMargen", label: "Margen de Utilidad %", default: 25 },
-          ].map(({ key, label: lbl }) => (
+            { key:"pctGD",     label:"Gastos Directos %"    },
+            { key:"pctSGV",    label:"Gastos SGV %"         },
+            { key:"pctMargen", label:"Margen de Utilidad %" },
+          ].map(({ key, label:lbl }) => (
             <div key={key}>
               <label style={label}>{lbl}</label>
               <input type="number" style={inp} min={0} max={100}
                 value={datos.config[key]}
-                onChange={e => actualizarDatos({ config: { ...datos.config, [key]: parseFloat(e.target.value) || 0 } })}
-              />
+                onChange={e=>actualizarDatos({ config:{ ...datos.config,[key]:parseFloat(e.target.value)||0 } })}/>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Visual */}
+      {/* Moneda por defecto */}
       <div style={card}>
-        <div style={{ fontWeight: 700, fontSize: tamFuente + 2, marginBottom: 20 }}>🎨 Apariencia</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>💱 Moneda y Tipo de Cambio</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
+          <div>
+            <label style={label}>Moneda por defecto</label>
+            <select style={inp} value={datos.config.moneda||"MXN"} onChange={e=>actualizarDatos({ config:{...datos.config,moneda:e.target.value} })}>
+              {Object.values(MONEDAS).map(m=><option key={m.id} value={m.id}>{m.flag} {m.id} — {m.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={label}>T.C. USD → MXN</label>
+            <input type="number" style={inp} min={1} step={0.1} value={datos.config.tc||17.5} onChange={e=>actualizarDatos({ config:{...datos.config,tc:parseFloat(e.target.value)||17.5} })}/>
+          </div>
+          <div>
+            <label style={label}>Idioma PDF por defecto</label>
+            <select style={inp} value={datos.config.idioma||"es"} onChange={e=>actualizarDatos({ config:{...datos.config,idioma:e.target.value} })}>
+              <option value="es">🇲🇽 Español</option>
+              <option value="en">🇺🇸 English</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Apariencia */}
+      <div style={card}>
+        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>🎨 Apariencia</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:16 }}>
           <div>
             <label style={label}>Tema de color</label>
-            <select style={inp} value={datos.tema} onChange={e => actualizarDatos({ tema: e.target.value })}>
+            <select style={inp} value={datos.tema} onChange={e=>actualizarDatos({ tema:e.target.value })}>
               <option value="oscuro">🌑 Oscuro Industrial</option>
               <option value="claro">☀️ Claro Profesional</option>
               <option value="marino">🌊 Azul Marino</option>
@@ -719,7 +1153,7 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente }) {
           </div>
           <div>
             <label style={label}>Fuente</label>
-            <select style={inp} value={datos.fuente} onChange={e => actualizarDatos({ fuente: e.target.value })}>
+            <select style={inp} value={datos.fuente} onChange={e=>actualizarDatos({ fuente:e.target.value })}>
               <option>IBM Plex Sans</option>
               <option>Inter</option>
               <option>Roboto</option>
@@ -727,11 +1161,25 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente }) {
           </div>
           <div>
             <label style={label}>Tamaño de texto</label>
-            <select style={inp} value={datos.tamTexto} onChange={e => actualizarDatos({ tamTexto: e.target.value })}>
+            <select style={inp} value={datos.tamTexto} onChange={e=>actualizarDatos({ tamTexto:e.target.value })}>
               <option value="chico">Chico</option>
               <option value="normal">Normal</option>
               <option value="grande">Grande</option>
             </select>
+          </div>
+        </div>
+        <div>
+          <label style={label}>Plantilla del PDF</label>
+          <div style={{ display:"flex", gap:10 }}>
+            {[
+              { id:"formal",     label:"📄 Formal",     desc:"Clásico blanco y negro" },
+              { id:"industrial", label:"⚙️ Industrial", desc:"Fondo oscuro, impacto visual" },
+            ].map(pl=>(
+              <button key={pl.id} onClick={()=>actualizarDatos({ plantillaPDF:pl.id })} style={{ flex:1, padding:"12px", borderRadius:8, border:`2px solid ${datos.plantillaPDF===pl.id?t.accent:t.border}`, background:datos.plantillaPDF===pl.id?t.input:"transparent", cursor:"pointer", textAlign:"left" as const }}>
+                <div style={{ fontWeight:700, color:datos.plantillaPDF===pl.id?t.accent:t.text, fontSize:tamFuente }}>{pl.label}</div>
+                <div style={{ fontSize:11, color:t.textSub, marginTop:3 }}>{pl.desc}</div>
+              </button>
+            ))}
           </div>
         </div>
       </div>
