@@ -393,7 +393,7 @@ export default function CotizadorProEstandar() {
       {/* CONTENIDO */}
       <main style={{ maxWidth:1100, margin:"0 auto", padding:"24px 16px" }}>
         {pestana==="cotizar"    && <PestanaCotizar    datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} cotEnEdicion={cotEnEdicion} onLimpiarEdicion={()=>setCotEnEdicion(null)} mostrarNotif={mostrarNotif} />}
-        {pestana==="lista"      && <PestanaLista      datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} onEditarCompleto={handleEditarCompleto} mostrarNotif={mostrarNotif} />}
+        {pestana==="lista"      && <PestanaLista      datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} onEditarCompleto={handleEditarCompleto} mostrarNotif={mostrarNotif} setPestana={setPestana} />}
         {pestana==="materiales" && <PestanaMateriales datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
         {pestana==="procesos"   && <PestanaProcesos   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
         {pestana==="clientes"   && <PestanaClientes   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} mostrarNotif={mostrarNotif} />}
@@ -807,7 +807,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: MIS COTIZACIONES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx, onEditarCompleto, mostrarNotif }: any) {
+function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx, onEditarCompleto, mostrarNotif, setPestana }: any) {
   const [showVista,      setShowVista]      = useState<any>(null);
   const [modalEditar,    setModalEditar]    = useState<any>(null); // cotización para modal de opción
   const cots = datos.cotizaciones || [];
@@ -898,18 +898,14 @@ function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx, onEditarComple
               {paso.desc}
             </div>
             <button
-              onClick={()=> {
-                // Navegamos cambiando la pestaña desde aquí — usamos sendPrompt como workaround
-                // El componente recibe setPestana via prop
-                if((paso as any).onNav) (paso as any).onNav(paso.tab);
-              }}
+              onClick={()=> setPestana(paso.tab)}
               style={{
                 padding:"7px 16px", borderRadius:8, border:`1px solid ${paso.listo?t.success:t.accent}`,
                 background:"transparent", color:paso.listo?t.success:t.accent,
                 cursor:"pointer", fontSize:13, fontWeight:600,
               }}
             >
-              {paso.listo ? "✓ Completado" : `→ ${paso.btnLabel}`}
+              {paso.listo ? "✓ Completado — ver" : `→ ${paso.btnLabel}`}
             </button>
           </div>
         </div>
