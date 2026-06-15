@@ -211,7 +211,7 @@ const LOGIN_TX: Record<string, Record<string, string>> = {
   },
 };
 
-function PantallaLogin() {
+function PantallaLogin({ onIdiomaElegido }: { onIdiomaElegido?: (id: string) => void }) {
   const [modo, setModo]       = useState<"login"|"registro"|"reset">("login");
   const [email, setEmail]     = useState("");
   const [password, setPass]   = useState("");
@@ -224,14 +224,15 @@ function PantallaLogin() {
   async function handleLogin(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setMsg({ tipo:"error", texto: lx.errorLogin });
+    if (error) { setMsg({ tipo:"error", texto: lx.errorLogin }); setCarg(false); return; }
+    onIdiomaElegido?.(lang); // ← pasar idioma elegido a la app
     setCarg(false);
   }
   async function handleRegistro(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) setMsg({ tipo:"error", texto: error.message });
-    else setMsg({ tipo:"ok", texto: lx.cuentaCreada });
+    else { setMsg({ tipo:"ok", texto: lx.cuentaCreada }); onIdiomaElegido?.(lang); }
     setCarg(false);
   }
   async function handleReset(e: any) {
@@ -401,11 +402,14 @@ export default function CotizadorProEstandar() {
     </div>
   );
 
-  if (!sesion) return <PantallaLogin />;
+  if (!sesion) return <PantallaLogin onIdiomaElegido={(id: string) => {
+    setDatos((prev: any) => ({ ...prev, config: { ...prev.config, idioma: id } }));
+  }} />;
 
-  const t        = TEMAS[datos.tema] || TEMAS.oscuro;
+  const t        = TEMAS[datos.tema] || TEMAS.claro;
   const tamFuente = datos.tamTexto === "chico" ? 13 : datos.tamTexto === "grande" ? 16 : 14;
-  const tx        = T18N[datos.config?.idioma || "es"] || T18N.es;
+  const idiomaApp = datos.config?.idioma || "es";
+  const tx        = T18N[idiomaApp] || T18N.es;
 
   // ── Edición completa desde Mis Cotizaciones ──────────────────────────────────
   function handleEditarCompleto(cot: any, modo: "mismo"|"nuevo") {
