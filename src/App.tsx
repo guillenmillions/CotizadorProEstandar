@@ -569,6 +569,10 @@ export default function CotizadorProEstandar() {
   const [pestana, setPestana]             = useState("cotizar");
   const [notif, setNotif]                 = useState<{msg:string;tipo:"ok"|"error"|"warn"}|null>(null);
   const [cotEnEdicion, setCotEnEdicion]   = useState<any>(null);
+  // Estado reactivo del idioma — fuente única de verdad
+  const [idiomaActivo, setIdiomaActivo]   = useState<string>(() => {
+    try { return localStorage.getItem("cot_lang") || "es"; } catch { return "es"; }
+  });
 
   function mostrarNotif(msg: string, tipo:"ok"|"error"|"warn"="ok") {
     setNotif({msg,tipo});
@@ -601,19 +605,15 @@ export default function CotizadorProEstandar() {
       if (data && !error) {
         const idiomaGuardado = typeof localStorage !== "undefined"
           ? localStorage.getItem("cot_lang") || "es" : "es";
+        setIdiomaActivo(idiomaGuardado);
         setDatos({ ...DATOS_INICIALES, ...data.datos,
-          config: { ...DATOS_INICIALES.config, ...data.datos?.config,
-            idioma: idiomaGuardado,
-            // Si el usuario eligió inglés en el login, el PDF también va en inglés por defecto
-            // pero solo si no tenía ya una preferencia guardada en Supabase
-            ...(data.datos?.config?.idioma ? {} : { idioma: idiomaGuardado })
-          }
+          config: { ...DATOS_INICIALES.config, ...data.datos?.config, idioma: idiomaGuardado }
         });
       } else {
-        // Sin datos en Supabase — usuario nuevo, aplicar idioma del login
         const idiomaGuardado = typeof localStorage !== "undefined"
           ? localStorage.getItem("cot_lang") || "es" : "es";
-        setDatos(prev => ({ ...prev, config: { ...prev.config, idioma: idiomaGuardado } }));
+        setIdiomaActivo(idiomaGuardado);
+        setDatos((prev: any) => ({ ...prev, config: { ...prev.config, idioma: idiomaGuardado } }));
       }
     })();
   }, [sesion]);
@@ -646,11 +646,9 @@ export default function CotizadorProEstandar() {
 
   if (!sesion) return <PantallaLogin />;
 
-  const t        = TEMAS[datos.tema] || TEMAS.oscuro;
+  const t         = TEMAS[datos.tema] || TEMAS.claro;
   const tamFuente = datos.tamTexto === "chico" ? 13 : datos.tamTexto === "grande" ? 16 : 14;
-  const idiomaApp = datos.config?.idioma ||
-    (typeof localStorage !== "undefined" ? localStorage.getItem("cot_lang") || "es" : "es");
-  const tx = T18N[idiomaApp] || T18N.es;
+  const tx        = T18N[idiomaActivo] || T18N.es;
 
   // ── Edición completa desde Mis Cotizaciones ──────────────────────────────────
   function handleEditarCompleto(cot: any, modo: "mismo"|"nuevo") {
@@ -1870,6 +1868,7 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente, tx }: any) {
             <select style={inp} value={datos.config.idioma||"es"} onChange={e=>{
               const nuevoIdioma = e.target.value;
               actualizarDatos({ config:{...datos.config, idioma:nuevoIdioma} });
+              setIdiomaActivo(nuevoIdioma);
               try { localStorage.setItem("cot_lang", nuevoIdioma); } catch {}
             }}>
               <option value="es">🇲🇽 Español</option>
