@@ -168,12 +168,146 @@ const DATOS_INICIALES = {
 // PANTALLA DE LOGIN
 // ═══════════════════════════════════════════════════════════════════════════════
 function PantallaLogin() {
-  const [modo, setModo]       = useState<"login"|"registro"|"reset">("login");
-  const [email, setEmail]     = useState("");
-  const [password, setPass]   = useState("");
-  const [cargando, setCarg]   = useState(false);
-  const [mensaje, setMsg]     = useState<{tipo:string;texto:string}|null>(null);
+  const [modo, setModo]   = useState<"login"|"registro"|"reset">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPass] = useState("");
+  const [cargando, setCarg] = useState(false);
+  const [mensaje, setMsg]   = useState<{tipo:string;texto:string}|null>(null);
+
+  // Idioma guardado en localStorage — no depende de ninguna constante global
+  const [lang, setLang] = useState<"es"|"en">(() => {
+    try { return (localStorage.getItem("cot_lang") as "es"|"en") || "es"; }
+    catch { return "es"; }
+  });
+
+  function cambiarLang(l: "es"|"en") {
+    setLang(l);
+    try { localStorage.setItem("cot_lang", l); } catch {}
+    setMsg(null);
+  }
+
+  // Textos completamente hardcodeados dentro de la función — cero deps externas
+  const es_txt = {
+    sub:"Estándar — Sistema de Cotización Industrial",
+    sinCuenta:"¿No tienes cuenta?", comprar:"Adquiere tu licencia aquí →",
+    tab1:"Iniciar sesión", tab2:"Registrarse",
+    correo:"Correo electrónico", pass:"Contraseña (mínimo 6 caracteres)",
+    btn1:"Entrar", btn2:"Crear cuenta", btn3:"Enviar enlace",
+    proc:"Procesando...", olvide:"¿Olvidaste tu contraseña?", volver:"← Volver",
+    resetMsg:"Ingresa tu correo para recibir el enlace de recuperación.",
+    errLogin:"Correo o contraseña incorrectos.",
+    okReg:"¡Cuenta creada! Revisa tu correo para confirmar.",
+    okReset:"Te enviamos un enlace para restablecer tu contraseña.",
+  };
+  const en_txt = {
+    sub:"Standard — Industrial Quoting System",
+    sinCuenta:"Don't have an account?", comprar:"Get your license here →",
+    tab1:"Sign in", tab2:"Sign up",
+    correo:"Email address", pass:"Password (minimum 6 characters)",
+    btn1:"Sign in", btn2:"Create account", btn3:"Send link",
+    proc:"Processing...", olvide:"Forgot your password?", volver:"← Back",
+    resetMsg:"Enter your email to receive a password reset link.",
+    errLogin:"Incorrect email or password.",
+    okReg:"Account created! Check your email to confirm.",
+    okReset:"We sent you a link to reset your password.",
+  };
+  const lx = lang === "en" ? en_txt : es_txt;
+
   const t = TEMAS.oscuro;
+
+  async function handleLogin(e: any) {
+    e.preventDefault(); setCarg(true); setMsg(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setMsg({ tipo:"error", texto: lx.errLogin });
+    setCarg(false);
+  }
+  async function handleRegistro(e: any) {
+    e.preventDefault(); setCarg(true); setMsg(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setMsg({ tipo:"error", texto: error.message });
+    else setMsg({ tipo:"ok", texto: lx.okReg });
+    setCarg(false);
+  }
+  async function handleReset(e: any) {
+    e.preventDefault(); setCarg(true); setMsg(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) setMsg({ tipo:"error", texto: error.message });
+    else setMsg({ tipo:"ok", texto: lx.okReset });
+    setCarg(false);
+  }
+
+  const inp = { width:"100%", padding:"12px 14px", borderRadius:8, border:`1px solid ${t.border}`, background:t.input, color:t.text, fontSize:15, outline:"none", boxSizing:"border-box" as const };
+  const btn = { width:"100%", padding:"13px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontSize:16, fontWeight:700, cursor:cargando?"not-allowed":"pointer", opacity:cargando?0.7:1 };
+
+  return (
+    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg, #0f1117 0%, #1a1d27 50%, #0f1117 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'IBM Plex Sans',sans-serif" }}>
+      <div style={{ width:420, background:t.card, borderRadius:16, border:`1px solid ${t.border}`, padding:40 }}>
+
+        {/* Selector de idioma */}
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:16, gap:6 }}>
+          {(["es","en"] as const).map(l => (
+            <button key={l} onClick={() => cambiarLang(l)} style={{
+              padding:"4px 12px", borderRadius:20,
+              border:`1px solid ${lang===l ? t.accent : t.border}`,
+              background: lang===l ? t.accent : "transparent",
+              color: lang===l ? "#fff" : t.textSub,
+              cursor:"pointer", fontSize:12, fontWeight:600,
+            }}>
+              {l === "es" ? "🇲🇽 ES" : "🇺🇸 EN"}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:56, height:56, borderRadius:14, background:t.accent, marginBottom:16, fontSize:26 }}>⚙️</div>
+          <div style={{ fontSize:22, fontWeight:800, color:t.text }}>CotizadorPRO</div>
+          <div style={{ fontSize:13, color:t.textSub, marginTop:4 }}>{lx.sub}</div>
+          <div style={{ fontSize:11, color:"#475569", marginTop:8, lineHeight:1.5 }}>
+            {lx.sinCuenta}{" "}
+            <a href="https://hotmart.com/es/marketplace/productos/cotizadorpro-estandar-sistema-de-cotizacion-para-talleres-de-maquinado/G106237955N"
+              target="_blank" rel="noopener noreferrer"
+              style={{ color:"#60a5fa", textDecoration:"none", fontWeight:600 }}>
+              {lx.comprar}
+            </a>
+          </div>
+        </div>
+
+        {modo !== "reset" && (
+          <div style={{ display:"flex", marginBottom:28, background:t.input, borderRadius:8, padding:4 }}>
+            {(["login","registro"] as const).map(m => (
+              <button key={m} onClick={() => { setModo(m); setMsg(null); }} style={{ flex:1, padding:"9px 0", border:"none", borderRadius:6, cursor:"pointer", background:modo===m?t.accent:"transparent", color:modo===m?"#fff":t.textSub, fontWeight:600, fontSize:14 }}>
+                {m === "login" ? lx.tab1 : lx.tab2}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={modo==="login"?handleLogin:modo==="registro"?handleRegistro:handleReset}>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            {modo === "reset" && <div style={{ color:t.textSub, fontSize:14 }}>{lx.resetMsg}</div>}
+            <input style={inp} type="email" placeholder={lx.correo} value={email} onChange={e=>setEmail(e.target.value)} required />
+            {modo !== "reset" && <input style={inp} type="password" placeholder={lx.pass} value={password} onChange={e=>setPass(e.target.value)} required minLength={6} />}
+            <button type="submit" style={btn} disabled={cargando}>
+              {cargando ? lx.proc : modo==="login" ? lx.btn1 : modo==="registro" ? lx.btn2 : lx.btn3}
+            </button>
+          </div>
+        </form>
+
+        {mensaje && (
+          <div style={{ marginTop:16, padding:"10px 14px", borderRadius:8, fontSize:14, background:mensaje.tipo==="ok"?"#14532d33":"#7f1d1d33", color:mensaje.tipo==="ok"?t.success:t.danger, border:`1px solid ${mensaje.tipo==="ok"?t.success:t.danger}` }}>
+            {mensaje.texto}
+          </div>
+        )}
+
+        <div style={{ marginTop:20, textAlign:"center", fontSize:13, color:t.textSub }}>
+          {modo==="login" && <span onClick={()=>{setModo("reset");setMsg(null);}} style={{ cursor:"pointer", color:t.accent }}>{lx.olvide}</span>}
+          {modo==="reset" && <span onClick={()=>{setModo("login");setMsg(null);}} style={{ cursor:"pointer", color:t.accent }}>{lx.volver}</span>}
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
   async function handleLogin(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
@@ -196,56 +330,6 @@ function PantallaLogin() {
     setCarg(false);
   }
 
-  const inp  = { width:"100%", padding:"12px 14px", borderRadius:8, border:`1px solid ${t.border}`, background:t.input, color:t.text, fontSize:15, outline:"none", boxSizing:"border-box" as const };
-  const btn  = { width:"100%", padding:"13px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontSize:16, fontWeight:700, cursor:cargando?"not-allowed":"pointer", opacity:cargando?0.7:1 };
-
-  return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg, #0f1117 0%, #1a1d27 50%, #0f1117 100%)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'IBM Plex Sans',sans-serif" }}>
-      <div style={{ width:400, background:t.card, borderRadius:16, border:`1px solid ${t.border}`, padding:40 }}>
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:56, height:56, borderRadius:14, background:t.accent, marginBottom:16, fontSize:26 }}>⚙️</div>
-          <div style={{ fontSize:22, fontWeight:800, color:t.text }}>CotizadorPRO</div>
-          <div style={{ fontSize:13, color:t.textSub, marginTop:4 }}>Estándar — Sistema de Cotización Industrial</div>
-          <div style={{ fontSize:11, color:"#475569", marginTop:8, lineHeight:1.5 }}>
-            ¿No tienes cuenta?{" "}
-            <a href="https://hotmart.com/es/marketplace/productos/cotizadorpro-estandar-sistema-de-cotizacion-para-talleres-de-maquinado/G106237955N"
-              target="_blank" rel="noopener noreferrer"
-              style={{ color:"#60a5fa", textDecoration:"none", fontWeight:600 }}>
-              Adquiere tu licencia aquí →
-            </a>
-          </div>
-        </div>
-        {modo !== "reset" && (
-          <div style={{ display:"flex", marginBottom:28, background:t.input, borderRadius:8, padding:4 }}>
-            {(["login","registro"] as const).map(m => (
-              <button key={m} onClick={() => { setModo(m); setMsg(null); }} style={{ flex:1, padding:"9px 0", border:"none", borderRadius:6, cursor:"pointer", background:modo===m?t.accent:"transparent", color:modo===m?"#fff":t.textSub, fontWeight:600, fontSize:14 }}>
-                {m === "login" ? "Iniciar sesión" : "Registrarse"}
-              </button>
-            ))}
-          </div>
-        )}
-        <form onSubmit={modo==="login"?handleLogin:modo==="registro"?handleRegistro:handleReset}>
-          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            {modo === "reset" && <div style={{ color:t.textSub, fontSize:14 }}>Ingresa tu correo para recibir el enlace de recuperación.</div>}
-            <input style={inp} type="email" placeholder="Correo electrónico" value={email} onChange={e=>setEmail(e.target.value)} required />
-            {modo !== "reset" && <input style={inp} type="password" placeholder="Contraseña (mínimo 6 caracteres)" value={password} onChange={e=>setPass(e.target.value)} required minLength={6} />}
-            <button type="submit" style={btn} disabled={cargando}>{cargando?"Procesando...":modo==="login"?"Entrar":modo==="registro"?"Crear cuenta":"Enviar enlace"}</button>
-          </div>
-        </form>
-        {mensaje && (
-          <div style={{ marginTop:16, padding:"10px 14px", borderRadius:8, fontSize:14, background:mensaje.tipo==="ok"?"#14532d33":"#7f1d1d33", color:mensaje.tipo==="ok"?t.success:t.danger, border:`1px solid ${mensaje.tipo==="ok"?t.success:t.danger}` }}>{mensaje.texto}</div>
-        )}
-        <div style={{ marginTop:20, textAlign:"center", fontSize:13, color:t.textSub }}>
-          {modo==="login" && <span onClick={()=>{setModo("reset");setMsg(null);}} style={{ cursor:"pointer", color:t.accent }}>¿Olvidaste tu contraseña?</span>}
-          {modo==="reset" && <span onClick={()=>{setModo("login");setMsg(null);}} style={{ cursor:"pointer", color:t.accent }}>← Volver al login</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// APP PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function CotizadorProEstandar() {
   const [sesion, setSesion]               = useState<any>(null);
