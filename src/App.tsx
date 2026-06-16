@@ -23,56 +23,187 @@ const MONEDAS: Record<string, { id: string; label: string; simbolo: string; loca
 // ─── TEXTOS BILINGÜE ──────────────────────────────────────────────────────────
 const T18N: Record<string, Record<string, string>> = {
   es: {
+    // PDF
     cotizacion:"COTIZACIÓN", cliente:"Cliente", condiciones:"Condiciones",
     entrega:"Entrega", pago:"Pago", vigencia:"Vigencia",
     descripcion:"Descripción de Servicios", cant:"Cant.", unidad:"Unidad",
     pUnitario:"P. Unitario", total:"Total", subtotal:"Subtotal",
     notas:"Notas", elaboro:"Elaboró", autorizo:"Autorizó / Cliente",
     dias:"días", porConfirmar:"Por confirmar", attn:"Attn:", plano:"Plano:",
-    guardar:"Guardar Cotización", nuevaCot:"Nueva Cotización",
-    misCots:"Mis Cotizaciones", materiales:"Materiales",
-    procesos:"Procesos", configuracion:"Configuración",
-    pagoPorDefecto:"Anticipo 50% / Liquidación a entrega",
-    borrador:"Borrador", enviada:"Enviada", aprobada:"Aprobada",
-    rechazada:"Rechazada", enProceso:"En Proceso", entregada:"Entregada",
     impuesto:"IVA", sinImpuesto:"Precio sin impuestos — sujeto a régimen fiscal",
     elaboroFirma:"Elaboró", autorizoFirma:"Autorizó / Cliente",
     flete:"Fletes / Servicios adicionales",
+    // Navegación
+    guardar:"Guardar Cotización", nuevaCot:"Nueva Cotización",
+    misCots:"Mis Cotizaciones", materiales:"Materiales",
+    procesos:"Procesos", configuracion:"Configuración",
+    // Estados
+    borrador:"Borrador", enviada:"Enviada", aprobada:"Aprobada",
+    rechazada:"Rechazada", enProceso:"En Proceso", entregada:"Entregada",
+    // Unidades
+    pza:"pza", pzas:"pzas", kg:"kg", hr:"hr", m:"m", ft:"ft", pulg:"pulg", lote:"lote",
+    // Interfaz cotización
+    datosCli:"Datos del Cliente", datosCot:"Datos de la Cotización",
+    partidas:"Partidas del trabajo", desglose:"Desglose de costos",
+    resultado:"Resultado", notaCliente:"Nota para el cliente",
+    cargarCatalogo:"Cargar del catálogo", guardarCatalogo:"Guardar en catálogo de clientes",
+    sinClientes:"Sin clientes en catálogo.", agregarPartida:"+ Agregar partida",
+    detalleInterno:"Detalle interno del taller", extrasFlete:"Extras / Fletes",
+    laborTotal:"Labor total", materialTotal:"Material total",
+    costoDirecto:"Costo Directo", gastosDir:"Gastos Directos",
+    gastosSGV:"Gastos SGV", costoEmpresa:"Costo Empresa",
+    precioVenta:"PRECIO DE VENTA", utilidad:"Utilidad",
+    margenReal:"Margen real", vistaPDF:"Vista / PDF",
+    // Clientes
+    agregarCliente:"+ Agregar cliente", sinClientesCat:"Sin clientes.",
+    agregarClienteTit:"Agregar cliente al catálogo",
+    clientesGuardados:"Los clientes guardados se cargan automáticamente al cotizar.",
+    // Campos comunes
+    empresa:"Empresa", contacto:"Contacto", email:"Email",
+    telefono:"Teléfono", ciudad:"Ciudad", rfc:"RFC",
+    razonSocial:"Razón Social", dirFiscal:"Dirección Fiscal",
+    folio:"Folio", validez:"Validez", monedaLbl:"Moneda",
+    tiempoEntrega:"Tiempo de Entrega", condPago:"Condiciones de Pago",
+    idiomaPDF:"Idioma del PDF", descTrabajo:"Descripción del trabajo",
+    proceso:"Proceso", materialLbl:"Material", horas:"Horas c/u",
+    kgPzas:"Kg c/u", cantidad:"Cantidad",
+    // Configuración
+    datosTaller:"Datos del Taller", pctFormula:"Porcentajes de la Fórmula",
+    folioCot:"Folio de Cotizaciones", monedaTC:"Moneda y Tipo de Cambio",
+    apariencia:"Apariencia", impuestoVentas:"Impuesto sobre Ventas",
+    // Pagos por defecto
+    pagoPorDefecto:"Anticipo 50% / Liquidación a entrega",
+    // Onboarding
+    bienvenido:"Bienvenido a CotizadorPRO",
+    pasosTitulo:"Sigue estos 3 pasos para crear tu primera cotización profesional",
+    paso1Tit:"Configura tu taller", paso1Desc:"Agrega el nombre, logo y datos fiscales de tu taller.",
+    paso2Tit:"Agrega tu primer cliente", paso2Desc:"Guarda los datos de tus clientes para cargarlos automáticamente.",
+    paso3Tit:"Crea tu primera cotización", paso3Desc:"Llena los datos del trabajo y genera un PDF profesional.",
+    irConfig:"Ir a Configuración", irClientes:"Ir a Clientes", irNuevaCot:"Nueva Cotización",
+    listo:"✓ Listo", completado:"✓ Completado — ver",
+    tipNube:"Tus cotizaciones se guardan automáticamente en la nube.",
   },
   en: {
+    // PDF
     cotizacion:"QUOTATION", cliente:"Bill To", condiciones:"Terms",
     entrega:"Delivery", pago:"Payment", vigencia:"Valid for",
     descripcion:"Services Description", cant:"Qty.", unidad:"Unit",
     pUnitario:"Unit Price", total:"Total", subtotal:"Subtotal",
     notas:"Notes", elaboro:"Prepared by", autorizo:"Authorized / Client",
     dias:"days", porConfirmar:"To be confirmed", attn:"Attn:", plano:"Dwg:",
-    guardar:"Save Quote", nuevaCot:"New Quote",
-    misCots:"My Quotes", materiales:"Materials",
-    procesos:"Processes", configuracion:"Settings",
-    pagoPorDefecto:"50% advance / balance on delivery",
-    borrador:"Draft", enviada:"Sent", aprobada:"Approved",
-    rechazada:"Rejected", enProceso:"In Progress", entregada:"Delivered",
     impuesto:"Tax", sinImpuesto:"Price excludes taxes — subject to client tax regime",
     elaboroFirma:"Prepared by", autorizoFirma:"Authorized / Client",
     flete:"Freight & Additional Services",
+    // Navegación
+    guardar:"Save Quote", nuevaCot:"New Quote",
+    misCots:"My Quotes", materiales:"Materials",
+    procesos:"Processes", configuracion:"Settings",
+    // Estados
+    borrador:"Draft", enviada:"Sent", aprobada:"Approved",
+    rechazada:"Rejected", enProceso:"In Progress", entregada:"Delivered",
+    // Unidades
+    pza:"pc", pzas:"pcs", kg:"kg", hr:"hr", m:"m", ft:"ft", pulg:"in", lote:"lot",
+    // Interfaz cotización
+    datosCli:"Customer Data", datosCot:"Quote Details",
+    partidas:"Work Items", desglose:"Cost Breakdown",
+    resultado:"Result", notaCliente:"Note to customer",
+    cargarCatalogo:"Load from catalog", guardarCatalogo:"Save to customer catalog",
+    sinClientes:"No customers in catalog.", agregarPartida:"+ Add item",
+    detalleInterno:"Internal shop detail", extrasFlete:"Freight & Extras",
+    laborTotal:"Total labor", materialTotal:"Total material",
+    costoDirecto:"Direct Cost", gastosDir:"Direct Overhead",
+    gastosSGV:"SG&A Expenses", costoEmpresa:"Total Cost",
+    precioVenta:"SALE PRICE", utilidad:"Profit",
+    margenReal:"Gross margin", vistaPDF:"Preview / PDF",
+    // Clientes
+    agregarCliente:"+ Add customer", sinClientesCat:"No customers.",
+    agregarClienteTit:"Add customer to catalog",
+    clientesGuardados:"Saved customers load automatically when quoting.",
+    // Campos comunes
+    empresa:"Company", contacto:"Contact", email:"Email",
+    telefono:"Phone", ciudad:"City", rfc:"Tax ID",
+    razonSocial:"Legal Name", dirFiscal:"Billing Address",
+    folio:"Quote No.", validez:"Valid for", monedaLbl:"Currency",
+    tiempoEntrega:"Lead Time", condPago:"Payment Terms",
+    idiomaPDF:"PDF Language", descTrabajo:"Work description",
+    proceso:"Process", materialLbl:"Material", horas:"Hours ea.",
+    kgPzas:"Kg ea.", cantidad:"Quantity",
+    // Configuración
+    datosTaller:"Shop Data", pctFormula:"Formula Percentages",
+    folioCot:"Quote Numbering", monedaTC:"Currency & Exchange Rate",
+    apariencia:"Appearance", impuestoVentas:"Sales Tax",
+    // Pagos
+    pagoPorDefecto:"50% advance / balance on delivery",
+    // Onboarding
+    bienvenido:"Welcome to CotizadorPRO",
+    pasosTitulo:"Follow these 3 steps to create your first professional quote",
+    paso1Tit:"Set up your shop", paso1Desc:"Add your shop name, logo and tax information.",
+    paso2Tit:"Add your first customer", paso2Desc:"Save customer data to load automatically when quoting.",
+    paso3Tit:"Create your first quote", paso3Desc:"Fill in the work details and generate a professional PDF.",
+    irConfig:"Go to Settings", irClientes:"Go to Customers", irNuevaCot:"New Quote",
+    listo:"✓ Done", completado:"✓ Completed — view",
+    tipNube:"Your quotes are automatically saved to the cloud.",
   },
   pt: {
-    // Português Brasileiro — terminologia industrial correta
+    // PDF
     cotizacion:"COTAÇÃO", cliente:"Cliente", condiciones:"Condições",
     entrega:"Entrega", pago:"Pagamento", vigencia:"Válido por",
     descripcion:"Descrição dos Serviços", cant:"Qtd.", unidad:"Unidade",
     pUnitario:"P. Unitário", total:"Total", subtotal:"Subtotal",
     notas:"Observações", elaboro:"Elaborado por", autorizo:"Autorizado / Cliente",
     dias:"dias", porConfirmar:"A confirmar", attn:"A/C:", plano:"Des.:",
-    guardar:"Salvar Cotação", nuevaCot:"Nova Cotação",
-    misCots:"Minhas Cotações", materiales:"Materiais",
-    procesos:"Processos", configuracion:"Configurações",
-    pagoPorDefecto:"50% antecipado / saldo na entrega",
-    borrador:"Rascunho", enviada:"Enviada", aprobada:"Aprovada",
-    rechazada:"Rejeitada", enProceso:"Em Produção", entregada:"Entregue",
     impuesto:"ICMS/ISS", sinImpuesto:"Preço sem impostos — sujeito ao regime fiscal do cliente",
     elaboroFirma:"Elaborado por", autorizoFirma:"Autorizado / Cliente",
     flete:"Frete / Serviços Adicionais",
+    // Navegação
+    guardar:"Salvar Cotação", nuevaCot:"Nova Cotação",
+    misCots:"Minhas Cotações", materiales:"Materiais",
+    procesos:"Processos", configuracion:"Configurações",
+    // Estados
+    borrador:"Rascunho", enviada:"Enviada", aprobada:"Aprovada",
+    rechazada:"Rejeitada", enProceso:"Em Produção", entregada:"Entregue",
+    // Unidades
+    pza:"pc", pzas:"pcs", kg:"kg", hr:"hr", m:"m", ft:"ft", pulg:"pol", lote:"lote",
+    // Interface cotação
+    datosCli:"Dados do Cliente", datosCot:"Detalhes da Cotação",
+    partidas:"Itens do Trabalho", desglose:"Detalhamento de Custos",
+    resultado:"Resultado", notaCliente:"Observação ao cliente",
+    cargarCatalogo:"Carregar do catálogo", guardarCatalogo:"Salvar no catálogo de clientes",
+    sinClientes:"Sem clientes no catálogo.", agregarPartida:"+ Adicionar item",
+    detalleInterno:"Detalhe interno da oficina", extrasFlete:"Frete / Extras",
+    laborTotal:"Total mão de obra", materialTotal:"Total material",
+    costoDirecto:"Custo Direto", gastosDir:"Despesas Diretas",
+    gastosSGV:"Despesas G&A", costoEmpresa:"Custo Total",
+    precioVenta:"PREÇO DE VENDA", utilidad:"Lucro",
+    margenReal:"Margem bruta", vistaPDF:"Visualizar / PDF",
+    // Clientes
+    agregarCliente:"+ Adicionar cliente", sinClientesCat:"Sem clientes.",
+    agregarClienteTit:"Adicionar cliente ao catálogo",
+    clientesGuardados:"Clientes salvos carregam automaticamente ao cotar.",
+    // Campos comuns
+    empresa:"Empresa", contacto:"Contato", email:"E-mail",
+    telefono:"Telefone", ciudad:"Cidade", rfc:"CNPJ/CPF",
+    razonSocial:"Razão Social", dirFiscal:"Endereço Fiscal",
+    folio:"Nº Cotação", validez:"Válido por", monedaLbl:"Moeda",
+    tiempoEntrega:"Prazo de Entrega", condPago:"Condições de Pagamento",
+    idiomaPDF:"Idioma do PDF", descTrabajo:"Descrição do trabalho",
+    proceso:"Processo", materialLbl:"Material", horas:"Horas un.",
+    kgPzas:"Kg un.", cantidad:"Quantidade",
+    // Configuração
+    datosTaller:"Dados da Oficina", pctFormula:"Percentuais da Fórmula",
+    folioCot:"Numeração de Cotações", monedaTC:"Moeda e Taxa de Câmbio",
+    apariencia:"Aparência", impuestoVentas:"Impostos sobre Vendas",
+    // Pagamento
+    pagoPorDefecto:"50% antecipado / saldo na entrega",
+    // Onboarding
+    bienvenido:"Bem-vindo ao CotizadorPRO",
+    pasosTitulo:"Siga estes 3 passos para criar sua primeira cotação profissional",
+    paso1Tit:"Configure sua oficina", paso1Desc:"Adicione nome, logo e dados fiscais da sua oficina.",
+    paso2Tit:"Adicione seu primeiro cliente", paso2Desc:"Salve dados de clientes para carregar automaticamente.",
+    paso3Tit:"Crie sua primeira cotação", paso3Desc:"Preencha os dados do trabalho e gere um PDF profissional.",
+    irConfig:"Ir para Configurações", irClientes:"Ir para Clientes", irNuevaCot:"Nova Cotação",
+    listo:"✓ Feito", completado:"✓ Concluído — ver",
+    tipNube:"Suas cotações são salvas automaticamente na nuvem.",
   },
 };
 
@@ -536,9 +667,9 @@ export default function CotizadorProEstandar() {
       <main style={{ maxWidth:1100, margin:"0 auto", padding:"24px 16px" }}>
         {pestana==="cotizar"    && <PestanaCotizar    datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} cotEnEdicion={cotEnEdicion} onLimpiarEdicion={()=>setCotEnEdicion(null)} mostrarNotif={mostrarNotif} />}
         {pestana==="lista"      && <PestanaLista      datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} onEditarCompleto={handleEditarCompleto} mostrarNotif={mostrarNotif} setPestana={setPestana} />}
-        {pestana==="materiales" && <PestanaMateriales datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
-        {pestana==="procesos"   && <PestanaProcesos   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
-        {pestana==="clientes"   && <PestanaClientes   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} mostrarNotif={mostrarNotif} />}
+        {pestana==="materiales" && <PestanaMateriales datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
+        {pestana==="procesos"   && <PestanaProcesos   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
+        {pestana==="clientes"   && <PestanaClientes   datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} mostrarNotif={mostrarNotif} />}
         {pestana==="config"     && <PestanaConfig     datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
       </main>
     </div>
@@ -717,7 +848,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
             <input style={{ ...inp, marginBottom:12 }} placeholder="Buscar por nombre o empresa…" value={buscaCli} onChange={e=>setBuscaCli(e.target.value)} />
             <div style={{ overflowY:"auto", flex:1 }}>
               {(datos.clientes||[]).length === 0
-                ? <div style={{ textAlign:"center", padding:40, color:t.textSub }}>Sin clientes en catálogo. Guarda uno desde esta pantalla.</div>
+                ? <div style={{ textAlign:"center", padding:40, color:t.textSub }}>{tx.sinClientes}</div>
                 : (datos.clientes||[]).filter((c: any) => {
                     const q = buscaCli.toLowerCase();
                     return !q || (c.empresa||"").toLowerCase().includes(q) || (c.nombre||"").toLowerCase().includes(q);
@@ -739,9 +870,9 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
       {/* Datos del cliente */}
       <div style={card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>👤 Datos del Cliente</div>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>{`👤 ${tx.datosCli}`}</div>
           <button onClick={()=>setShowSelectorCli(true)} style={{ padding:"7px 14px", borderRadius:8, border:`1px solid ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:13 }}>
-            📋 Cargar del catálogo
+            {`📋 ${tx.cargarCatalogo}`}
           </button>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
@@ -762,14 +893,14 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
         </div>
         {clienteEmpresa && (
           <button onClick={guardarClienteEnCatalogo} style={{ fontSize:12, padding:"5px 12px", borderRadius:7, border:`1px solid ${t.success}`, background:"transparent", color:t.success, cursor:"pointer" }}>
-            💾 Guardar en catálogo de clientes
+            {`💾 ${tx.guardarCatalogo}`}
           </button>
         )}
       </div>
 
       {/* Datos de la cotización */}
       <div style={card}>
-        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>📋 Datos de la Cotización</div>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>{`📋 ${tx.datosCot}`}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12 }}>
           <div><label style={label}>Folio</label><input style={inp} value={folio} onChange={e=>setFolio(e.target.value)}/></div>
           <div><label style={label}>Validez</label>
@@ -801,7 +932,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
       {/* Partidas */}
       <div style={card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>🔩 Partidas del trabajo</div>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>{`🔩 ${tx.partidas}`}</div>
           <span style={{ fontSize:11, color:t.textSub }}>El nombre de cada partida es lo que verá el cliente en el PDF</span>
         </div>
 
@@ -834,7 +965,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
               {/* Detalle interno — solo lo ve el taller */}
               <div style={{ padding:"12px 14px", background:t.card }}>
                 <div style={{ fontSize:10, fontWeight:700, color:t.textSub, textTransform:"uppercase" as const, letterSpacing:"0.07em", marginBottom:10 }}>
-                  Detalle interno del taller
+                  {tx.detalleInterno}
                 </div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 2fr 1fr 1fr", gap:10, marginBottom:10 }}>
                   <div>
@@ -884,10 +1015,10 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
 
         <div style={{ display:"flex", gap:12, marginTop:14, alignItems:"center", flexWrap:"wrap" as const }}>
           <button onClick={agregarLinea} style={{ padding:"9px 18px", borderRadius:8, border:`2px dashed ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:tamFuente, fontWeight:600 }}>
-            + Agregar partida
+            {tx.agregarPartida}
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
-            <label style={{ ...label, margin:0 }}>Extras / Fletes:</label>
+            <label style={{ ...label, margin:0 }}>{`${tx.extrasFlete}:`}</label>
             <input type="number" style={{ ...inp, width:130 }} value={extras} min={0}
               onChange={e=>setExtras(Number(e.target.value))}/>
           </div>
@@ -897,15 +1028,15 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
       {/* Resumen */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
         <div style={card}>
-          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>📊 Desglose de costos (MXN)</div>
+          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>{`📊 ${tx.desglose} (${moneda||"MXN"})`}</div>
           {[
-            ["Labor total",               totalLabor],
-            ["Material total",            totalMaterial],
-            ["Extras / Fletes",           Number(extras)||0],
-            ["Costo Directo",             res.costoDirecto],
+            [tx.laborTotal,               totalLabor],
+            [tx.materialTotal,            totalMaterial],
+            [tx.extrasFlete,           Number(extras)||0],
+            [tx.costoDirecto,             res.costoDirecto],
             [`Gastos Directos (${pctGD}%)`,res.gastosDirectos],
             [`Gastos SGV (${pctSGV}%)`,   res.gastosSGV],
-            ["Costo Empresa",             res.costoEmpresa],
+            [tx.costoEmpresa,             res.costoEmpresa],
           ].map(([k,v])=>(
             <div key={String(k)} style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}`, fontSize:tamFuente }}>
               <span style={{ color:t.textSub }}>{k}</span><span>{fmtMXN(v as number)}</span>
@@ -913,17 +1044,17 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
           ))}
         </div>
         <div style={card}>
-          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>💰 Resultado</div>
+          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>{`💰 ${tx.resultado}`}</div>
           <div style={{ background:t.input, borderRadius:10, padding:20, marginBottom:16, textAlign:"center" }}>
-            <div style={{ fontSize:12, color:t.textSub, marginBottom:4 }}>PRECIO DE VENTA</div>
+            <div style={{ fontSize:12, color:t.textSub, marginBottom:4 }}>{tx.precioVenta}</div>
             <div style={{ fontSize:36, fontWeight:800, color:t.accent }}>{fmt2(res.precioVenta)}</div>
             <div style={{ fontSize:12, color:t.textSub, marginTop:4 }}>{moneda}{moneda!=="MXN"?` · ${fmtMXN(res.precioVenta)} MXN`:""}</div>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}` }}>
-            <span style={{ color:t.textSub }}>Utilidad</span><span style={{ color:t.success, fontWeight:700 }}>{fmtMXN(res.utilidad)}</span>
+            <span style={{ color:t.textSub }}>{tx.utilidad}</span><span style={{ color:t.success, fontWeight:700 }}>{fmtMXN(res.utilidad)}</span>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}` }}>
-            <span style={{ color:t.textSub }}>Margen real</span><span style={{ color:t.success, fontWeight:700 }}>{res.margenReal.toFixed(1)}%</span>
+            <span style={{ color:t.textSub }}>{tx.margenReal}</span><span style={{ color:t.success, fontWeight:700 }}>{res.margenReal.toFixed(1)}%</span>
           </div>
           {datos.config?.impuestoActivo !== false && (
             <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 0", borderBottom:`1px solid ${t.border}` }}>
@@ -936,12 +1067,12 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
             <span style={{ fontWeight:700 }}>{fmt2(datos.config?.impuestoActivo!==false ? res.precioVenta*(1+(datos.config?.impuestoPct||16)/100) : res.precioVenta)}</span>
           </div>
           <div style={{ marginTop:14 }}>
-            <label style={label}>Nota para el cliente</label>
+            <label style={label}>{tx.notaCliente}</label>
             <textarea style={{ ...inp, height:60, resize:"vertical" as const }} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Ej: Tiempo de entrega 5 días hábiles"/>
           </div>
           <div style={{ display:"flex", gap:10, marginTop:14 }}>
             <button onClick={()=>setShowVistaCliente(true)} style={{ flex:1, padding:"11px 0", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.text, cursor:"pointer", fontWeight:600, fontSize:tamFuente }}>
-              🖨 Vista / PDF
+              {`🖨 ${tx.vistaPDF}`}
             </button>
             <button onClick={guardarCotizacion} style={{ flex:2, padding:"11px 0", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, fontSize:tamFuente, cursor:"pointer" }}>
               💾 {txCot.guardar}
@@ -1318,7 +1449,7 @@ function VistaPDF({ datos, lineasCalc, res, extras, folio, descripcion, nota, cl
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: CATÁLOGO DE CLIENTES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaClientes({ datos, actualizarDatos, t, tamFuente, mostrarNotif }: any) {
+function PestanaClientes({ datos, actualizarDatos, t, tamFuente, tx, mostrarNotif }: any) {
   const [nuevo, setNuevo]     = useState({ empresa:"", nombre:"", email:"", tel:"", ciudad:"", rfc:"", razonSocial:"", direccionFiscal:"" });
   const [editId, setEditId]   = useState<number|null>(null);
   const [busca, setBusca]     = useState("");
@@ -1353,7 +1484,7 @@ function PestanaClientes({ datos, actualizarDatos, t, tamFuente, mostrarNotif }:
     <div>
       {/* Formulario nuevo cliente */}
       <div style={{ background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24, marginBottom:20 }}>
-        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:4, color:t.text }}>➕ Agregar cliente al catálogo</div>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:4, color:t.text }}>{`➕ ${tx.agregarClienteTit}`}</div>
         <div style={{ fontSize:12, color:t.textSub, marginBottom:16, padding:"8px 12px", background:t.input, borderRadius:6 }}>
           💡 Los clientes guardados aquí se cargan automáticamente al cotizar — sin volver a escribir sus datos.
         </div>
@@ -1367,7 +1498,7 @@ function PestanaClientes({ datos, actualizarDatos, t, tamFuente, mostrarNotif }:
           <div><label style={label}>Razón Social</label><input style={inp} value={nuevo.razonSocial} onChange={e=>setNuevo(p=>({...p,razonSocial:e.target.value}))} placeholder="Razón social completa"/></div>
           <div><label style={label}>Dirección Fiscal</label><input style={inp} value={nuevo.direccionFiscal} onChange={e=>setNuevo(p=>({...p,direccionFiscal:e.target.value}))} placeholder="Calle, Col., C.P., Ciudad"/></div>
         </div>
-        <button onClick={agregar} style={{ padding:"9px 20px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer", fontSize:tamFuente }}>+ Agregar cliente</button>
+        <button onClick={agregar} style={{ padding:"9px 20px", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, cursor:"pointer", fontSize:tamFuente }}>{tx.agregarCliente}</button>
       </div>
 
       {/* Lista */}
@@ -1377,7 +1508,7 @@ function PestanaClientes({ datos, actualizarDatos, t, tamFuente, mostrarNotif }:
           <input style={{ ...inp, width:240 }} placeholder="Buscar…" value={busca} onChange={e=>setBusca(e.target.value)}/>
         </div>
         {clientesFiltrados.length === 0
-          ? <div style={{ textAlign:"center", padding:40, color:t.textSub }}>Sin clientes.</div>
+          ? <div style={{ textAlign:"center", padding:40, color:t.textSub }}>{tx.sinClientesCat}</div>
           : clientesFiltrados.map((c: any) => (
               <div key={c.id} style={{ padding:"14px 0", borderBottom:`1px solid ${t.border}` }}>
                 {editId === c.id ? (
@@ -1431,7 +1562,7 @@ function EditarCliente({ c, t, tamFuente, inp, label, onGuardar, onCancelar }: a
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: MATERIALES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaMateriales({ datos, actualizarDatos, t, tamFuente }: any) {
+function PestanaMateriales({ datos, actualizarDatos, t, tamFuente, tx }: any) {
   const [nuevo, setNuevo] = useState({ nombre:"", precio:"" });
   const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
 
@@ -1469,7 +1600,7 @@ function PestanaMateriales({ datos, actualizarDatos, t, tamFuente }: any) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: PROCESOS
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaProcesos({ datos, actualizarDatos, t, tamFuente }: any) {
+function PestanaProcesos({ datos, actualizarDatos, t, tamFuente, tx }: any) {
   const [nuevo, setNuevo] = useState({ nombre:"", tarifa:"" });
   const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
 
