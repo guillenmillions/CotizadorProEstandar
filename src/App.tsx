@@ -37,8 +37,8 @@ var TEMAS: Record<string, Record<string, string>> = {
   },
 };
 
-// @ts-ignore
-var T18N: Record<string, Record<string, string>> = {
+function T18N(lang: string): Record<string, string> {
+  const data: Record<string, Record<string, string>> = {
   es: {
     cotizacion:"COTIZACIÓN", cliente:"Cliente", condiciones:"Condiciones",
     entrega:"Entrega", pago:"Pago", vigencia:"Vigencia",
@@ -92,6 +92,8 @@ var T18N: Record<string, Record<string, string>> = {
     loginEnlaceEnv:"We sent you a link to reset your password.",
   },
 };
+  return data[lang] || data["es"];
+}
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -452,7 +454,7 @@ export default function CotizadorProEstandar() {
   const t        = (TEMAS && TEMAS[datos.tema]) ? TEMAS[datos.tema] : (TEMAS ? TEMAS.claro : TEMAS["claro"]);
   const tamFuente = datos.tamTexto === "chico" ? 13 : datos.tamTexto === "grande" ? 16 : 14;
   const idiomaApp = datos.config?.idioma || "es";
-  const tx        = T18N[idiomaApp] || T18N.es;
+  const tx        = T18N(idiomaApp) || T18N("es");
 
   // ── Edición completa desde Mis Cotizaciones ──────────────────────────────────
   function handleEditarCompleto(cot: any, modo: "mismo"|"nuevo") {
@@ -591,7 +593,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
   });
   const res = calcular(totalLabor, totalMaterial, Number(extras)||0, pctGD, pctSGV, pctMargen);
 
-  const txCot = T18N[idioma] || T18N.es;
+  const txCot = T18N(idioma) || T18N("es");
   const fmt2  = (n: number) => fmtMoneda(convertirMoneda(n, moneda, tc), moneda);
   const monedaLabel = moneda !== "MXN" ? ` ${moneda}` : " MXN";
 
@@ -1185,7 +1187,7 @@ function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx, onEditarComple
 // VISTA PDF / CLIENTE
 // ═══════════════════════════════════════════════════════════════════════════════
 function VistaPDF({ datos, lineasCalc, res, extras, folio, descripcion, nota, cliente, cond, moneda, tc, idioma, t, onCerrar }: any) {
-  const txPDF   = T18N[idioma] || T18N.es;
+  const txPDF   = T18N(idioma) || T18N("es");
   const fmt2    = (n: number) => fmtMoneda(convertirMoneda(n, moneda, tc), moneda);
   const mLabel  = moneda !== "MXN" ? moneda : "MXN";
   const tallerNombre = datos.taller?.razonSocial || datos.taller?.nombre || "Taller de Maquinado Industrial";
