@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { TEMAS, T18N, MONEDAS } from "./i18n";
+import { TEMAS, T18N, MONEDAS, getT } from "./i18n";
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -276,7 +276,7 @@ export default function CotizadorProEstandar() {
 
   const t        = TEMAS[datos.tema] || TEMAS.oscuro;
   const tamFuente = datos.tamTexto === "chico" ? 13 : datos.tamTexto === "grande" ? 16 : 14;
-  const tx        = T18N[idiomaActivo] || T18N.es;
+  const tx = getT(idiomaActivo);
 
   // ── Edición completa desde Mis Cotizaciones ──────────────────────────────────
   function handleEditarCompleto(cot: any, modo: "mismo"|"nuevo") {
@@ -409,7 +409,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx, cotEnEdicion
   });
   const res = calcular(totalLabor, totalMaterial, Number(extras)||0, pctGD, pctSGV, pctMargen);
 
-  const txCot = T18N[idioma] || T18N.es;
+  const txCot = getT(idioma);
   const fmt2  = (n: number) => fmtMoneda(convertirMoneda(n, moneda, tc), moneda);
   const monedaLabel = moneda !== "MXN" ? ` ${moneda}` : " MXN";
 
@@ -952,7 +952,7 @@ function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx, onEditarComple
 // VISTA PDF / CLIENTE
 // ═══════════════════════════════════════════════════════════════════════════════
 function VistaPDF({ datos, lineasCalc, res, extras, folio, descripcion, nota, cliente, cond, moneda, tc, idioma, t, onCerrar }: any) {
-  const txPDF   = T18N[idioma] || T18N.es;
+  const txPDF   = getT(idioma);
   const fmt2    = (n: number) => fmtMoneda(convertirMoneda(n, moneda, tc), moneda);
   const mLabel  = moneda !== "MXN" ? moneda : "MXN";
   const tallerNombre = datos.taller?.razonSocial || datos.taller?.nombre || "Taller de Maquinado Industrial";
