@@ -129,12 +129,14 @@ function PantallaLogin() {
 
   async function handleLogin(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
+    try { localStorage.setItem("cot_lang", lang); } catch {}
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMsg({ tipo:"error", texto:"Correo o contraseña incorrectos." });
     setCarg(false);
   }
   async function handleRegistro(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
+    try { localStorage.setItem("cot_lang", lang); } catch {}
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) setMsg({ tipo:"error", texto: error.message });
     else setMsg({ tipo:"ok", texto:"¡Cuenta creada! Revisa tu correo para confirmar." });
