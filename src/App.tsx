@@ -132,8 +132,10 @@ function PantallaLogin({ onLang }: { onLang: (l: string) => void }) {
     try { localStorage.setItem("cot_lang", lang); } catch {}
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setMsg({ tipo:"error", texto:"Correo o contraseña incorrectos." }); setCarg(false); return; }
-    // Recargar con el idioma en la URL para que la app lo tome al iniciar
-    window.location.href = window.location.pathname + "?lang=" + lang;
+    // Supabase ya maneja la sesión - solo necesitamos forzar re-render con el idioma correcto
+    // Guardar en sessionStorage también para que persista en el re-render de Supabase
+    try { sessionStorage.setItem("cot_lang_session", lang); } catch {}
+    window.location.replace(window.location.pathname);
   }
   async function handleRegistro(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
@@ -213,14 +215,12 @@ export default function CotizadorProEstandar() {
   const [cotEnEdicion, setCotEnEdicion]   = useState<any>(null);
   const [idiomaActivo, setIdiomaActivo]   = useState<string>(() => {
     try {
-      // Leer de URL param si existe (viene del login), luego limpiar la URL
-      const params = new URLSearchParams(window.location.search);
-      const urlLang = params.get("lang");
-      if (urlLang && ["es","en","pt"].includes(urlLang)) {
-        localStorage.setItem("cot_lang", urlLang);
-        // Limpiar la URL sin recargar
-        window.history.replaceState({}, "", window.location.pathname);
-        return urlLang;
+      // Verificar sessionStorage primero (viene del login reciente)
+      const sessionLang = sessionStorage.getItem("cot_lang_session");
+      if (sessionLang && ["es","en","pt"].includes(sessionLang)) {
+        localStorage.setItem("cot_lang", sessionLang);
+        sessionStorage.removeItem("cot_lang_session");
+        return sessionLang;
       }
       return localStorage.getItem("cot_lang") || "es";
     } catch { return "es"; }
