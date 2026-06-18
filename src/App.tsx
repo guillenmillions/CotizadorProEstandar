@@ -131,11 +131,8 @@ function PantallaLogin({ onLang }: { onLang: (l: string) => void }) {
     e.preventDefault(); setCarg(true); setMsg(null);
     try { localStorage.setItem("cot_lang", lang); } catch {}
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setMsg({ tipo:"error", texto:"Correo o contraseña incorrectos." }); setCarg(false); return; }
-    // Supabase ya maneja la sesión - solo necesitamos forzar re-render con el idioma correcto
-    // Guardar en sessionStorage también para que persista en el re-render de Supabase
-    try { sessionStorage.setItem("cot_lang_session", lang); } catch {}
-    window.location.replace(window.location.pathname);
+    if (error) { setMsg({ tipo:"error", texto:"Correo o contraseña incorrectos." }); setCarg(false); }
+    setCarg(false);
   }
   async function handleRegistro(e: any) {
     e.preventDefault(); setCarg(true); setMsg(null);
@@ -213,18 +210,9 @@ export default function CotizadorProEstandar() {
   const [pestana, setPestana]             = useState("cotizar");
   const [notif, setNotif]                 = useState<{msg:string;tipo:"ok"|"error"|"warn"}|null>(null);
   const [cotEnEdicion, setCotEnEdicion]   = useState<any>(null);
-  const [idiomaActivo, setIdiomaActivo]   = useState<string>(() => {
-    try {
-      // Verificar sessionStorage primero (viene del login reciente)
-      const sessionLang = sessionStorage.getItem("cot_lang_session");
-      if (sessionLang && ["es","en","pt"].includes(sessionLang)) {
-        localStorage.setItem("cot_lang", sessionLang);
-        sessionStorage.removeItem("cot_lang_session");
-        return sessionLang;
-      }
-      return localStorage.getItem("cot_lang") || "es";
-    } catch { return "es"; }
-  });
+    const [_langTick, _setLangTick] = useState(0);
+  const idiomaActivo = (() => { try { return localStorage.getItem("cot_lang") || "es"; } catch { return "es"; } })();
+  function setIdiomaActivo(l: string) { try { localStorage.setItem("cot_lang", l); } catch {} _setLangTick(t => t+1); }
 
   function mostrarNotif(msg: string, tipo:"ok"|"error"|"warn"="ok") {
     setNotif({msg,tipo});
