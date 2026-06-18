@@ -552,9 +552,9 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
       {/* Datos del cliente */}
       <div style={card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>👤 Datos del Cliente</div>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>{`👤 ${tx.datosCli||"Datos del Cliente"}`}</div>
           <button onClick={()=>setShowSelectorCli(true)} style={{ padding:"7px 14px", borderRadius:8, border:`1px solid ${t.accent}`, background:"transparent", color:t.accent, cursor:"pointer", fontSize:13 }}>
-            📋 Cargar del catálogo
+            {`📋 ${tx.cargarCatalogo||"Cargar del catálogo"}`}
           </button>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
@@ -582,15 +582,15 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
 
       {/* Datos de la cotización */}
       <div style={card}>
-        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>📋 Datos de la Cotización</div>
+        <div style={{ fontWeight:700, fontSize:tamFuente+1, marginBottom:16 }}>{`📋 ${tx.datosCot||"Datos de la Cotización"}`}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12 }}>
-          <div><label style={label}>Folio</label><input style={inp} value={folio} onChange={e=>setFolio(e.target.value)}/></div>
-          <div><label style={label}>Validez</label>
+          <div><label style={label}>{tx.folio||"Folio"}</label><input style={inp} value={folio} onChange={e=>setFolio(e.target.value)}/></div>
+          <div><label style={label}>{tx.validez||"Validez"}</label>
             <select style={inp} value={validez} onChange={e=>setValidez(Number(e.target.value))}>
               {[15,30,60,90].map(d=><option key={d} value={d}>{d} días</option>)}
             </select>
           </div>
-          <div><label style={label}>Moneda</label>
+          <div><label style={label}>{tx.monedaLbl||"Moneda"}</label>
             <select style={inp} value={moneda} onChange={e=>setMoneda(e.target.value)}>
               {Object.values(MONEDAS).map(m=><option key={m.id} value={m.id}>{m.flag} {m.id} — {m.label}</option>)}
             </select>
@@ -614,7 +614,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
       {/* Partidas */}
       <div style={card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>🔩 Partidas del trabajo</div>
+          <div style={{ fontWeight:700, fontSize:tamFuente+1 }}>{`🔩 ${tx.partidas||"Partidas del trabajo"}`}</div>
           <span style={{ fontSize:11, color:t.textSub }}>El nombre de cada partida es lo que verá el cliente en el PDF</span>
         </div>
 
@@ -647,7 +647,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
               {/* Detalle interno — solo lo ve el taller */}
               <div style={{ padding:"12px 14px", background:t.card }}>
                 <div style={{ fontSize:10, fontWeight:700, color:t.textSub, textTransform:"uppercase" as const, letterSpacing:"0.07em", marginBottom:10 }}>
-                  Detalle interno del taller
+                  {tx.detalleInterno||"Detalle interno del taller"}
                 </div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr 2fr 1fr 1fr", gap:10, marginBottom:10 }}>
                   <div>
@@ -658,14 +658,14 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
                   <div>
                     <div style={{ fontSize:11, color:t.textSub, marginBottom:4 }}>Proceso</div>
                     <select style={inp} value={l.proceso} onChange={e=>cambiarLinea(l.id,"proceso",e.target.value)}>
-                      <option value="">Seleccionar proceso…</option>
+                      <option value="">{tx.phProceso||"Seleccionar proceso…"}</option>
                       {datos.procesos.map((p: any)=><option key={p.id} value={p.nombre}>{p.nombre} — ${p.tarifa}/hr</option>)}
                     </select>
                   </div>
                   <div>
                     <div style={{ fontSize:11, color:t.textSub, marginBottom:4 }}>Material</div>
                     <select style={inp} value={l.material} onChange={e=>cambiarLinea(l.id,"material",e.target.value)}>
-                      <option value="">Seleccionar material…</option>
+                      <option value="">{tx.phMaterial||"Seleccionar material…"}</option>
                       {datos.materiales.map((m: any)=><option key={m.id} value={m.nombre}>{m.nombre} — ${m.precio}/kg</option>)}
                     </select>
                   </div>
@@ -710,7 +710,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
       {/* Resumen */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
         <div style={card}>
-          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>📊 Desglose de costos (MXN)</div>
+          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>{`📊 ${tx.desglose||"Desglose de costos"}`}</div>
           {[
             ["Labor total",               totalLabor],
             ["Material total",            totalMaterial],
@@ -726,7 +726,7 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
           ))}
         </div>
         <div style={card}>
-          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>💰 Resultado</div>
+          <div style={{ fontWeight:700, marginBottom:14, fontSize:tamFuente+1 }}>{`💰 ${tx.resultado||"Resultado"}`}</div>
           <div style={{ background:t.input, borderRadius:10, padding:20, marginBottom:16, textAlign:"center" }}>
             <div style={{ fontSize:12, color:t.textSub, marginBottom:4 }}>PRECIO DE VENTA</div>
             <div style={{ fontSize:36, fontWeight:800, color:t.accent }}>{fmt2(res.precioVenta)}</div>
@@ -749,12 +749,12 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdici
             <span style={{ fontWeight:700 }}>{fmt2(datos.config?.impuestoActivo!==false ? res.precioVenta*(1+(datos.config?.impuestoPct||16)/100) : res.precioVenta)}</span>
           </div>
           <div style={{ marginTop:14 }}>
-            <label style={label}>Nota para el cliente</label>
+            <label style={label}>{tx.notaCliente||"Nota para el cliente"}</label>
             <textarea style={{ ...inp, height:60, resize:"vertical" as const }} value={nota} onChange={e=>setNota(e.target.value)} placeholder={tx.phNota||"Ej: Tiempo de entrega..."}/>
           </div>
           <div style={{ display:"flex", gap:10, marginTop:14 }}>
             <button onClick={()=>setShowVistaCliente(true)} style={{ flex:1, padding:"11px 0", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.text, cursor:"pointer", fontWeight:600, fontSize:tamFuente }}>
-              🖨 Vista / PDF
+              {`🖨 ${tx.vistaPDF||"Vista / PDF"}`}
             </button>
             <button onClick={guardarCotizacion} style={{ flex:2, padding:"11px 0", borderRadius:8, border:"none", background:t.accent, color:"#fff", fontWeight:700, fontSize:tamFuente, cursor:"pointer" }}>
               💾 {txCot.guardar}
@@ -1483,7 +1483,7 @@ function PestanaConfig({ datos, actualizarDatos, t, tamFuente, lang, setIdiomaAc
 
       {/* Moneda por defecto */}
       <div style={card}>
-        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>💱 Moneda y Tipo de Cambio</div>
+        <div style={{ fontWeight:700, fontSize:tamFuente+2, marginBottom:20, color:t.text }}>{`💱 ${tx.monedaTC||"Moneda y Tipo de Cambio"}`}</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16, marginBottom:14 }}>
           <div>
             <label style={label}>{tx.monedaDefecto||"Moneda por defecto"}</label>
