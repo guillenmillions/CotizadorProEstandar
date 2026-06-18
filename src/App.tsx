@@ -350,12 +350,12 @@ export default function CotizadorProEstandar() {
 
       {/* CONTENIDO */}
       <main style={{ maxWidth:1100, margin:"0 auto", padding:"24px 16px" }}>
-        {pestana==="cotizar"    && <PestanaCotizar    key={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} cotEnEdicion={cotEnEdicion} onLimpiarEdicion={()=>setCotEnEdicion(null)} mostrarNotif={mostrarNotif} />}
-        {pestana==="lista"      && <PestanaLista      key={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} onEditarCompleto={handleEditarCompleto} mostrarNotif={mostrarNotif} setPestana={setPestana} />}
-        {pestana==="materiales" && <PestanaMateriales key={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
-        {pestana==="procesos"   && <PestanaProcesos   key={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} />}
-        {pestana==="clientes"   && <PestanaClientes   key={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} mostrarNotif={mostrarNotif} />}
-        {pestana==="config"     && <PestanaConfig     key={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} tx={tx} setIdiomaActivo={setIdiomaActivo} />}
+        {pestana==="cotizar"    && <PestanaCotizar    key={idiomaActivo} lang={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} cotEnEdicion={cotEnEdicion} onLimpiarEdicion={()=>setCotEnEdicion(null)} mostrarNotif={mostrarNotif} />}
+        {pestana==="lista"      && <PestanaLista      key={idiomaActivo} lang={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} onEditarCompleto={handleEditarCompleto} mostrarNotif={mostrarNotif} setPestana={setPestana} />}
+        {pestana==="materiales" && <PestanaMateriales key={idiomaActivo} lang={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana==="procesos"   && <PestanaProcesos   key={idiomaActivo} lang={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} />}
+        {pestana==="clientes"   && <PestanaClientes   key={idiomaActivo} lang={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} mostrarNotif={mostrarNotif} />}
+        {pestana==="config"     && <PestanaConfig     key={idiomaActivo} lang={idiomaActivo} datos={datos} actualizarDatos={actualizarDatos} t={t} tamFuente={tamFuente} setIdiomaActivo={setIdiomaActivo} />}
       </main>
     </div>
   );
@@ -364,8 +364,8 @@ export default function CotizadorProEstandar() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: NUEVA COTIZACIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx: _tx, cotEnEdicion, onLimpiarEdicion, mostrarNotif }: any) {
-  const tx = getT();
+function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, lang, cotEnEdicion, onLimpiarEdicion, mostrarNotif }: any) {
+  const tx = getT(lang);
   const cot = cotEnEdicion?.cot;
   const modoEdicion = cotEnEdicion?.modo; // "mismo" | "nuevo"
 
@@ -767,8 +767,8 @@ function PestanaCotizar({ datos, actualizarDatos, t, tamFuente, tx: _tx, cotEnEd
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: MIS COTIZACIONES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaLista({ datos, actualizarDatos, t, tamFuente, tx: _tx, onEditarCompleto, mostrarNotif, setPestana }: any) {
-  const tx = getT();
+function PestanaLista({ datos, actualizarDatos, t, tamFuente, lang, onEditarCompleto, mostrarNotif, setPestana }: any) {
+  const tx = getT(lang);
   const [showVista,      setShowVista]      = useState<any>(null);
   const [modalEditar,    setModalEditar]    = useState<any>(null); // cotización para modal de opción
   const cots = datos.cotizaciones || [];
@@ -1130,8 +1130,8 @@ function VistaPDF({ datos, lineasCalc, res, extras, folio, descripcion, nota, cl
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: CATÁLOGO DE CLIENTES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaClientes({ datos, actualizarDatos, t, tamFuente, tx: _tx, mostrarNotif }: any) {
-  const tx = getT();
+function PestanaClientes({ datos, actualizarDatos, t, tamFuente, lang, mostrarNotif }: any) {
+  const tx = getT(lang);
   const [nuevo, setNuevo]     = useState({ empresa:"", nombre:"", email:"", tel:"", ciudad:"", rfc:"", razonSocial:"", direccionFiscal:"" });
   const [editId, setEditId]   = useState<number|null>(null);
   const [busca, setBusca]     = useState("");
@@ -1194,7 +1194,7 @@ function PestanaClientes({ datos, actualizarDatos, t, tamFuente, tx: _tx, mostra
           : clientesFiltrados.map((c: any) => (
               <div key={c.id} style={{ padding:"14px 0", borderBottom:`1px solid ${t.border}` }}>
                 {editId === c.id ? (
-                  <EditarCliente c={c} t={t} tamFuente={tamFuente} inp={inp} label={label} tx={tx}
+                  <EditarCliente c={c} t={t} tamFuente={tamFuente} inp={inp} label={label} lang={lang}
                     onGuardar={(d: any)=>guardarEdicion(c.id,d)} onCancelar={()=>setEditId(null)}/>
                 ) : (
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -1219,8 +1219,8 @@ function PestanaClientes({ datos, actualizarDatos, t, tamFuente, tx: _tx, mostra
   );
 }
 
-function EditarCliente({ c, t, tamFuente, inp, label, tx: _tx, onGuardar, onCancelar }: any) {
-  const tx = getT();
+function EditarCliente({ c, t, tamFuente, inp, label, lang, onGuardar, onCancelar }: any) {
+  const tx = getT(lang);
   const [d, setD] = useState({ empresa:c.empresa||"", nombre:c.nombre||"", email:c.email||"", tel:c.tel||"", ciudad:c.ciudad||"", rfc:c.rfc||"", razonSocial:c.razonSocial||"", direccionFiscal:c.direccionFiscal||"" });
   return (
     <div>
@@ -1245,8 +1245,8 @@ function EditarCliente({ c, t, tamFuente, inp, label, tx: _tx, onGuardar, onCanc
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: MATERIALES
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaMateriales({ datos, actualizarDatos, t, tamFuente, tx: _tx }: any) {
-  const tx = getT();
+function PestanaMateriales({ datos, actualizarDatos, t, tamFuente, lang }: any) {
+  const tx = getT(lang);
   const [nuevo, setNuevo] = useState({ nombre:"", precio:"" });
   const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
 
@@ -1284,8 +1284,8 @@ function PestanaMateriales({ datos, actualizarDatos, t, tamFuente, tx: _tx }: an
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: PROCESOS
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaProcesos({ datos, actualizarDatos, t, tamFuente, tx: _tx }: any) {
-  const tx = getT();
+function PestanaProcesos({ datos, actualizarDatos, t, tamFuente, lang }: any) {
+  const tx = getT(lang);
   const [nuevo, setNuevo] = useState({ nombre:"", tarifa:"" });
   const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
 
@@ -1357,8 +1357,8 @@ function ActualizarTC({ t, tamFuente, tcActual, onActualizar }: any) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // PESTAÑA: CONFIGURACIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
-function PestanaConfig({ datos, actualizarDatos, t, tamFuente, tx: _tx, setIdiomaActivo }: any) {
-  const tx = getT();
+function PestanaConfig({ datos, actualizarDatos, t, tamFuente, lang, setIdiomaActivo }: any) {
+  const tx = getT(lang);
   const inp   = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"9px 12px", color:t.text, fontSize:tamFuente, width:"100%", outline:"none" };
   const label = { fontSize:tamFuente-1, color:t.textSub, marginBottom:6, display:"block" };
   const card  = { background:t.card, borderRadius:12, border:`1px solid ${t.border}`, padding:24, marginBottom:20 };
