@@ -227,10 +227,9 @@ export default function CotizadorProEstandar() {
       setSesion(session);
       setCargSesion(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       setSesion(session);
-      if (session) {
-        // Usuario acaba de hacer login — leer el idioma que eligió en el login
+      if (event === "SIGNED_IN") {
         try {
           const lang = localStorage.getItem("cot_lang") || "es";
           setIdiomaActivo(lang);
