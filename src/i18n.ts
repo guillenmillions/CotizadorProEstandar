@@ -70,6 +70,12 @@ const _es: Record<string,string> = {
   apariencia:"Apariencia", temaColor:"Tema de color", fuente:"Fuente",
   tamTexto:"Tamaño de texto", plantillaPDF:"Plantilla del PDF",
   cerrarSesion:"Cerrar sesión",
+  datosCli:"Datos del Cliente", cargarCatalogo:"Cargar del catálogo",
+  datosCot:"Datos de la Cotización", validez:"Validez", monedaLbl:"Moneda",
+  partidas:"Partidas del trabajo", detalleInterno:"Detalle interno del taller",
+  phProceso:"Seleccionar proceso…", phMaterial:"Seleccionar material…",
+  desglose:"Desglose de costos", resultado:"Resultado",
+  notaCliente:"Nota para el cliente", vistaPDF:"Vista / PDF",
 };
 
 const _en: Record<string,string> = {
@@ -122,6 +128,12 @@ const _en: Record<string,string> = {
   apariencia:"Appearance", temaColor:"Color theme", fuente:"Font",
   tamTexto:"Text size", plantillaPDF:"PDF Template",
   cerrarSesion:"Sign out",
+  datosCli:"Customer Data", cargarCatalogo:"Load from catalog",
+  datosCot:"Quote Details", validez:"Valid for", monedaLbl:"Currency",
+  partidas:"Work Items", detalleInterno:"Internal shop detail",
+  phProceso:"Select process…", phMaterial:"Select material…",
+  desglose:"Cost Breakdown", resultado:"Result",
+  notaCliente:"Note to customer", vistaPDF:"Preview / PDF",
 };
 
 const _pt: Record<string,string> = {
@@ -174,6 +186,12 @@ const _pt: Record<string,string> = {
   apariencia:"Aparência", temaColor:"Tema de cor", fuente:"Fonte",
   tamTexto:"Tamanho do texto", plantillaPDF:"Modelo de PDF",
   cerrarSesion:"Sair",
+  datosCli:"Dados do Cliente", cargarCatalogo:"Carregar do catálogo",
+  datosCot:"Detalhes da Cotação", validez:"Válido por", monedaLbl:"Moeda",
+  partidas:"Itens do Trabalho", detalleInterno:"Detalhe interno da oficina",
+  phProceso:"Selecionar processo…", phMaterial:"Selecionar material…",
+  desglose:"Detalhamento de Custos", resultado:"Resultado",
+  notaCliente:"Observação ao cliente", vistaPDF:"Visualizar / PDF",
 };
 
 export const T18N: Record<string, Record<string, string>> = {
