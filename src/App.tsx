@@ -133,6 +133,7 @@ function PantallaLogin({ onLang }: { onLang: (l: string) => void }) {
     onLang(lang);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setMsg({ tipo:"error", texto:"Correo o contraseña incorrectos." }); onLang("es"); }
+    else { window.location.reload(); }
     setCarg(false);
   }
   async function handleRegistro(e: any) {
