@@ -143,6 +143,14 @@ const _es: Record<string,string> = {
   volverBtn:"← Volver", imprimirBtn:"🖨 Imprimir / PDF", plantillaColonLbl:"Plantilla:",
   fechaColonLbl:"Fecha:", trabajoColonLbl:"Trabajo: ", unidadPzaLbl:"pza", editarBtn:"✏️ Editar",
   datosFiscalesTallerTitulo:"Datos Fiscales del Taller (aparecen en el PDF)", tcUsdMxnLbl:"T.C. USD → MXN",
+  datosFiscalesOpcionalTitulo:"Datos Fiscales (opcional)",
+  tallerFallback:"Taller de Maquinado Industrial", partidaFallback:"Partida",
+  subirLogoBtn:"📁 Seleccionar archivo", logoCargadoLbl:"Logo cargado ✓",
+  impuestoPresetLbl:"Plantilla rápida (opcional)", impuestoPresetPlaceholder:"Selecciona tu país…",
+  tasasAutoTitulo:"Monedas con actualización automática (1 USD →)",
+  tcFuenteNota:"Fuente: frankfurter.app (Banco Central Europeo) · Se aplica a cotizaciones nuevas, no modifica las guardadas.",
+  tasasManualTitulo:"Otras monedas (ajuste manual, 1 USD →)",
+  tasasManualNota:"Estas monedas no las cubre la API gratuita — actualízalas a mano cuando cambie el tipo de cambio.",
 };
 
 const _en: Record<string,string> = {
@@ -268,6 +276,14 @@ const _en: Record<string,string> = {
   volverBtn:"← Back", imprimirBtn:"🖨 Print / PDF", plantillaColonLbl:"Template:",
   fechaColonLbl:"Date:", trabajoColonLbl:"Work: ", unidadPzaLbl:"pcs", editarBtn:"✏️ Edit",
   datosFiscalesTallerTitulo:"Shop Tax Information (appears on the PDF)", tcUsdMxnLbl:"FX Rate USD → MXN",
+  datosFiscalesOpcionalTitulo:"Tax Information (optional)",
+  tallerFallback:"Industrial Machining Shop", partidaFallback:"Item",
+  subirLogoBtn:"📁 Choose file", logoCargadoLbl:"Logo uploaded ✓",
+  impuestoPresetLbl:"Quick preset (optional)", impuestoPresetPlaceholder:"Select your country…",
+  tasasAutoTitulo:"Currencies with automatic updates (1 USD →)",
+  tcFuenteNota:"Source: frankfurter.app (European Central Bank) · Applies to new quotes, doesn't change saved ones.",
+  tasasManualTitulo:"Other currencies (manual adjustment, 1 USD →)",
+  tasasManualNota:"These currencies aren't covered by the free API — update them by hand when the rate changes.",
 };
 
 const _pt: Record<string,string> = {
@@ -393,6 +409,14 @@ const _pt: Record<string,string> = {
   volverBtn:"← Voltar", imprimirBtn:"🖨 Imprimir / PDF", plantillaColonLbl:"Modelo:",
   fechaColonLbl:"Data:", trabajoColonLbl:"Trabalho: ", unidadPzaLbl:"pç", editarBtn:"✏️ Editar",
   datosFiscalesTallerTitulo:"Dados Fiscais da Oficina (aparecem no PDF)", tcUsdMxnLbl:"Câmbio USD → MXN",
+  datosFiscalesOpcionalTitulo:"Dados Fiscais (opcional)",
+  tallerFallback:"Oficina de Maquinados Industriais", partidaFallback:"Item",
+  subirLogoBtn:"📁 Selecionar arquivo", logoCargadoLbl:"Logo carregado ✓",
+  impuestoPresetLbl:"Modelo rápido (opcional)", impuestoPresetPlaceholder:"Selecione seu país…",
+  tasasAutoTitulo:"Moedas com atualização automática (1 USD →)",
+  tcFuenteNota:"Fonte: frankfurter.app (Banco Central Europeu) · Aplica-se a novas cotações, não altera as salvas.",
+  tasasManualTitulo:"Outras moedas (ajuste manual, 1 USD →)",
+  tasasManualNota:"Estas moedas não são cobertas pela API gratuita — atualize-as manualmente quando a taxa mudar.",
 };
 
 export const T18N: Record<string, Record<string, string>> = {
