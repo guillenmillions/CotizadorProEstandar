@@ -77,6 +77,72 @@ const _es: Record<string,string> = {
   phProceso:"Seleccionar proceso…", phMaterial:"Seleccionar material…",
   desglose:"Desglose de costos", resultado:"Resultado",
   notaCliente:"Nota para el cliente", vistaPDF:"Vista / PDF",
+  // Desglose de costos (Resumen)
+  laborTotal:"Labor total", materialTotalLbl:"Material total",
+  extrasFletesLinea:"Extras / Fletes", costoDirectoLbl:"Costo Directo",
+  gastosDirectosLinea:"Gastos Directos", gastosSGVLinea:"Gastos SGV",
+  costoEmpresaLbl:"Costo Empresa", precioVentaLbl:"PRECIO DE VENTA",
+  utilidadLbl:"Utilidad", margenRealLbl:"Margen real",
+  agregarPartidaBtn:"+ Agregar partida", extrasFletesInputLbl:"Extras / Fletes:",
+  // Onboarding
+  bienvenidaApp:"¡Bienvenido a MachX!",
+  onboardingSubtitulo:"Sigue estos 3 pasos para crear tu primera cotización profesional",
+  pasoConfigTaller:"Configura tu taller",
+  pasoConfigTallerDesc:"Agrega el nombre, logo, RFC y datos fiscales de tu taller. Aparecerán en todos tus PDFs.",
+  btnIrConfig:"Ir a Configuración", pasoAgregarCliente:"Agrega tu primer cliente",
+  pasoAgregarClienteDesc:"Guarda los datos de tus clientes para cargarlos automáticamente al cotizar.",
+  pasoCrearCot:"Crea tu primera cotización", completadoVer:"✓ Completado — ver",
+  tipNube:"Tus cotizaciones se guardan automáticamente en la nube. Accede desde cualquier dispositivo.",
+  // Modal editar
+  modalEditarTitulo:"✏️ Editar cotización", opMismoFolioTitulo:"📝 Editar — mantener folio",
+  opMismoFolioDesc:"Modifica procesos, materiales, cliente y condiciones. La cotización original se actualiza. Útil para correcciones.",
+  opNuevoFolioTitulo:"🆕 Nueva versión — folio siguiente",
+  opNuevoFolioDesc:"Copia los datos a una cotización nueva con el siguiente folio. La original queda intacta como historial. Útil para revisiones de precio.",
+  // Banner edición
+  bannerEditando:"✏️ Editando cotización existente",
+  bannerNuevaVersion:"🆕 Nueva versión basada en cotización existente",
+  bannerFolioReemplaza:"Folio: {folio} — se reemplazará al guardar",
+  bannerOriginalNuevo:"Original: {original} → Nueva: {nueva}",
+  btnCancelarEdicion:"✕ Cancelar edición",
+  // Clientes
+  seleccionarClienteLbl:"👥 Seleccionar cliente", guardarEnCatalogoBtn:"💾 Guardar en catálogo de clientes",
+  agregarClienteCatalogoTitulo:"➕ Agregar cliente al catálogo",
+  tipClientesCatalogo:"Los clientes guardados aquí se cargan automáticamente al cotizar — sin volver a escribir sus datos.",
+  clientesHeaderLbl:"👥 Clientes", precioKgCol:"Precio/kg",
+  // Partidas
+  phNombrePartida:"Ej: Perno M12, Eje de transmisión, Soporte...",
+  // Confirmaciones y notificaciones
+  confirmEliminarCot:"¿Eliminar esta cotización? Esta acción no se puede deshacer.",
+  confirmEliminarCliente:"¿Eliminar este cliente?",
+  notifClienteGuardado:"Cliente guardado en catálogo.", notifClienteEliminado:"Cliente eliminado.",
+  notifClienteIncompleto:"Agrega al menos el nombre o empresa del cliente.",
+  notifCotEliminada:"Cotización eliminada.", notifCotActualizada:"Cotización actualizada correctamente.",
+  notifCotGuardada:"Cotización guardada correctamente.",
+  // Tipo de cambio
+  tcError:"❌ No se pudo obtener el TC. Verifica tu conexión.", tcUltimaAct:"Última actualización:",
+  tcConsultando:"⏳ Consultando…", tcActualizarBtn:"🔄 Actualizar TC",
+  // Impuesto
+  impuestoAyuda:"Configura el impuesto según tu país: IVA 16% (México), Sales Tax (EE.UU.), VAT 19% (Alemania), o desactívalo para exportaciones con tasa cero.",
+  impuestoEjemplos:"Ejemplos: México IVA 16% · EE.UU. sin impuesto (B2B con certificado de exención) · Alemania VAT 19% · España IVA 21% · Colombia IVA 19% · Exportación directa: desactivado (tasa cero)",
+  // PDF
+  notaRegimenFiscal:"Precio no incluye impuestos — sujeto a régimen fiscal del cliente",
+  taglineFooter:"Sistema de Cotización Industrial",
+  // Apariencia
+  temaClaro:"☀️ Claro Profesional (recomendado)", temaOscuro:"🌑 Oscuro Industrial", temaMarino:"🌊 Azul Marino",
+  plantillaFormalLbl:"📄 Formal", plantillaFormalDesc:"Clásico blanco y negro",
+  plantillaIndustrialLbl:"⚙️ Industrial", plantillaIndustrialDesc:"Fondo oscuro, impacto visual",
+  tamChico:"Chico", tamNormal:"Normal", tamGrande:"Grande",
+  // Segunda pasada
+  cerrarBtn:"Cerrar", sinEmpresaLbl:"Sin empresa",
+  tiempoEntregaLbl:"Tiempo de Entrega", condicionesPagoLbl:"Condiciones de Pago",
+  idiomaPDFLbl:"Idioma del PDF", notaAparecePDF:"→ aparece en PDF del cliente",
+  cantidadLbl:"Cantidad", horasCu:"Horas c/u", kgCu:"Kg c/u", laborColonLbl:"Labor:",
+  folioActualLbl:"Folio actual:", sinClienteLbl:"Sin cliente", contactoColonLbl:"Contacto:",
+  btnIrClientes:"Ir a Clientes", listoLbl:"Listo",
+  pasoCrearCotDesc:"Llena los datos del trabajo, agrega las partidas y genera un PDF profesional en segundos.",
+  volverBtn:"← Volver", imprimirBtn:"🖨 Imprimir / PDF", plantillaColonLbl:"Plantilla:",
+  fechaColonLbl:"Fecha:", trabajoColonLbl:"Trabajo: ", unidadPzaLbl:"pza", editarBtn:"✏️ Editar",
+  datosFiscalesTallerTitulo:"Datos Fiscales del Taller (aparecen en el PDF)", tcUsdMxnLbl:"T.C. USD → MXN",
 };
 
 const _en: Record<string,string> = {
@@ -117,8 +183,8 @@ const _en: Record<string,string> = {
   datosTaller:"Shop Data", nombreTaller:"Shop name",
   logoTaller:"Shop logo", rfcTaller:"Tax ID",
   pctFormula:"Formula Percentages",
-  gastosDirectosLabel:"Direct Overhead %", gastosSGVLabel:"SG&A %",
-  margenLabel:"Profit Margin %",
+  gastosDirectosLabel:"Direct Overhead %", gastosSGVLabel:"SG&A Expenses %",
+  margenLabel:"Gross Margin %",
   folioCot:"Quote Numbering", prefijoFolio:"Prefix",
   siguienteNum:"Next number", autoIncrementa:"Auto-increments",
   impuestoVentas:"Sales Tax", nombreImpuesto:"Tax name",
@@ -132,10 +198,76 @@ const _en: Record<string,string> = {
   sinClientesCat:"No customers in catalog. Save one from this screen.", notaPartidas:"The name of each item is what the customer sees in the PDF", materialLbl:"Material", sinClientes:"No customers.", vistaPrev:"Preview",
   datosCli:"Customer Data", cargarCatalogo:"Load from catalog",
   datosCot:"Quote Details", validez:"Valid for", monedaLbl:"Currency",
-  partidas:"Work Items", detalleInterno:"Internal shop detail",
+  partidas:"Line Items", detalleInterno:"Internal shop detail",
   phProceso:"Select process…", phMaterial:"Select material…",
   desglose:"Cost Breakdown", resultado:"Result",
   notaCliente:"Note to customer", vistaPDF:"Preview / PDF",
+  // Cost breakdown (Summary)
+  laborTotal:"Total Labor", materialTotalLbl:"Total Material",
+  extrasFletesLinea:"Freight & Extras", costoDirectoLbl:"Direct Cost",
+  gastosDirectosLinea:"Direct Overhead", gastosSGVLinea:"SG&A Expenses",
+  costoEmpresaLbl:"Total Cost", precioVentaLbl:"SALE PRICE",
+  utilidadLbl:"Profit", margenRealLbl:"Actual Margin",
+  agregarPartidaBtn:"+ Add line item", extrasFletesInputLbl:"Freight & Extras:",
+  // Onboarding
+  bienvenidaApp:"Welcome to MachX!",
+  onboardingSubtitulo:"Follow these 3 steps to create your first professional quote",
+  pasoConfigTaller:"Set up your shop",
+  pasoConfigTallerDesc:"Add your shop's name, logo, tax ID and billing info. They'll appear on every PDF.",
+  btnIrConfig:"Go to Settings", pasoAgregarCliente:"Add your first customer",
+  pasoAgregarClienteDesc:"Save your customers' info to auto-load it when quoting.",
+  pasoCrearCot:"Create your first quote", completadoVer:"✓ Done — view",
+  tipNube:"Your quotes are saved automatically to the cloud. Access them from any device.",
+  // Edit modal
+  modalEditarTitulo:"✏️ Edit quote", opMismoFolioTitulo:"📝 Edit — keep number",
+  opMismoFolioDesc:"Update processes, materials, customer and terms. The original quote is updated. Useful for corrections.",
+  opNuevoFolioTitulo:"🆕 New version — next number",
+  opNuevoFolioDesc:"Copies the data to a new quote with the next number. The original stays intact as history. Useful for price revisions.",
+  // Edit banner
+  bannerEditando:"✏️ Editing existing quote",
+  bannerNuevaVersion:"🆕 New version based on existing quote",
+  bannerFolioReemplaza:"Number: {folio} — will be replaced on save",
+  bannerOriginalNuevo:"Original: {original} → New: {nueva}",
+  btnCancelarEdicion:"✕ Cancel edit",
+  // Customers
+  seleccionarClienteLbl:"👥 Select customer", guardarEnCatalogoBtn:"💾 Save to customer catalog",
+  agregarClienteCatalogoTitulo:"➕ Add customer to catalog",
+  tipClientesCatalogo:"Customers saved here load automatically when quoting — no need to retype their info.",
+  clientesHeaderLbl:"👥 Customers", precioKgCol:"Price/kg",
+  // Line items
+  phNombrePartida:"E.g: M12 bolt, Transmission shaft, Bracket...",
+  // Confirmations & notifications
+  confirmEliminarCot:"Delete this quote? This action cannot be undone.",
+  confirmEliminarCliente:"Delete this customer?",
+  notifClienteGuardado:"Customer saved to catalog.", notifClienteEliminado:"Customer deleted.",
+  notifClienteIncompleto:"Add at least the customer's name or company.",
+  notifCotEliminada:"Quote deleted.", notifCotActualizada:"Quote updated successfully.",
+  notifCotGuardada:"Quote saved successfully.",
+  // Exchange rate
+  tcError:"❌ Couldn't fetch the exchange rate. Check your connection.", tcUltimaAct:"Last updated:",
+  tcConsultando:"⏳ Checking…", tcActualizarBtn:"🔄 Update rate",
+  // Tax
+  impuestoAyuda:"Set the tax based on your country: 16% VAT (Mexico), Sales Tax (US), 19% VAT (Germany), or turn it off for zero-rated exports.",
+  impuestoEjemplos:"Examples: Mexico VAT 16% · US no tax (B2B with exemption certificate) · Germany VAT 19% · Spain VAT 21% · Colombia VAT 19% · Direct export: disabled (zero rate)",
+  // PDF
+  notaRegimenFiscal:"Price excludes taxes — subject to customer's tax regime",
+  taglineFooter:"Industrial Quoting System",
+  // Appearance
+  temaClaro:"☀️ Professional Light (recommended)", temaOscuro:"🌑 Industrial Dark", temaMarino:"🌊 Navy Blue",
+  plantillaFormalLbl:"📄 Formal", plantillaFormalDesc:"Classic black & white",
+  plantillaIndustrialLbl:"⚙️ Industrial", plantillaIndustrialDesc:"Dark background, high impact",
+  tamChico:"Small", tamNormal:"Normal", tamGrande:"Large",
+  // Second pass
+  cerrarBtn:"Close", sinEmpresaLbl:"No company",
+  tiempoEntregaLbl:"Delivery Time", condicionesPagoLbl:"Payment Terms",
+  idiomaPDFLbl:"PDF Language", notaAparecePDF:"→ appears on customer's PDF",
+  cantidadLbl:"Quantity", horasCu:"Hours each", kgCu:"Kg each", laborColonLbl:"Labor:",
+  folioActualLbl:"Current number:", sinClienteLbl:"No customer", contactoColonLbl:"Contact:",
+  btnIrClientes:"Go to Customers", listoLbl:"Done",
+  pasoCrearCotDesc:"Fill in the job details, add line items and generate a professional PDF in seconds.",
+  volverBtn:"← Back", imprimirBtn:"🖨 Print / PDF", plantillaColonLbl:"Template:",
+  fechaColonLbl:"Date:", trabajoColonLbl:"Work: ", unidadPzaLbl:"pcs", editarBtn:"✏️ Edit",
+  datosFiscalesTallerTitulo:"Shop Tax Information (appears on the PDF)", tcUsdMxnLbl:"FX Rate USD → MXN",
 };
 
 const _pt: Record<string,string> = {
@@ -195,6 +327,72 @@ const _pt: Record<string,string> = {
   phProceso:"Selecionar processo…", phMaterial:"Selecionar material…",
   desglose:"Detalhamento de Custos", resultado:"Resultado",
   notaCliente:"Observação ao cliente", vistaPDF:"Visualizar / PDF",
+  // Detalhamento de custos (Resumo)
+  laborTotal:"Mão de obra total", materialTotalLbl:"Material total",
+  extrasFletesLinea:"Frete / Extras", costoDirectoLbl:"Custo Direto",
+  gastosDirectosLinea:"Despesas Diretas", gastosSGVLinea:"Despesas G&A",
+  costoEmpresaLbl:"Custo Total", precioVentaLbl:"PREÇO DE VENDA",
+  utilidadLbl:"Lucro", margenRealLbl:"Margem real",
+  agregarPartidaBtn:"+ Adicionar item", extrasFletesInputLbl:"Frete / Extras:",
+  // Onboarding
+  bienvenidaApp:"Bem-vindo ao MachX!",
+  onboardingSubtitulo:"Siga estes 3 passos para criar sua primeira cotação profissional",
+  pasoConfigTaller:"Configure sua oficina",
+  pasoConfigTallerDesc:"Adicione o nome, logo, CNPJ e dados fiscais da sua oficina. Aparecerão em todos os PDFs.",
+  btnIrConfig:"Ir para Configurações", pasoAgregarCliente:"Adicione seu primeiro cliente",
+  pasoAgregarClienteDesc:"Salve os dados dos seus clientes para carregá-los automaticamente ao cotar.",
+  pasoCrearCot:"Crie sua primeira cotação", completadoVer:"✓ Concluído — ver",
+  tipNube:"Suas cotações são salvas automaticamente na nuvem. Acesse de qualquer dispositivo.",
+  // Modal de edição
+  modalEditarTitulo:"✏️ Editar cotação", opMismoFolioTitulo:"📝 Editar — manter número",
+  opMismoFolioDesc:"Modifique processos, materiais, cliente e condições. A cotação original é atualizada. Útil para correções.",
+  opNuevoFolioTitulo:"🆕 Nova versão — próximo número",
+  opNuevoFolioDesc:"Copia os dados para uma nova cotação com o próximo número. A original permanece intacta como histórico. Útil para revisões de preço.",
+  // Banner de edição
+  bannerEditando:"✏️ Editando cotação existente",
+  bannerNuevaVersion:"🆕 Nova versão baseada em cotação existente",
+  bannerFolioReemplaza:"Número: {folio} — será substituído ao salvar",
+  bannerOriginalNuevo:"Original: {original} → Nova: {nueva}",
+  btnCancelarEdicion:"✕ Cancelar edição",
+  // Clientes
+  seleccionarClienteLbl:"👥 Selecionar cliente", guardarEnCatalogoBtn:"💾 Salvar no catálogo de clientes",
+  agregarClienteCatalogoTitulo:"➕ Adicionar cliente ao catálogo",
+  tipClientesCatalogo:"Os clientes salvos aqui são carregados automaticamente ao cotar — sem precisar redigitar os dados.",
+  clientesHeaderLbl:"👥 Clientes", precioKgCol:"Preço/kg",
+  // Itens
+  phNombrePartida:"Ex: Parafuso M12, Eixo de transmissão, Suporte...",
+  // Confirmações e notificações
+  confirmEliminarCot:"Excluir esta cotação? Esta ação não pode ser desfeita.",
+  confirmEliminarCliente:"Excluir este cliente?",
+  notifClienteGuardado:"Cliente salvo no catálogo.", notifClienteEliminado:"Cliente excluído.",
+  notifClienteIncompleto:"Adicione pelo menos o nome ou empresa do cliente.",
+  notifCotEliminada:"Cotação excluída.", notifCotActualizada:"Cotação atualizada com sucesso.",
+  notifCotGuardada:"Cotação salva com sucesso.",
+  // Taxa de câmbio
+  tcError:"❌ Não foi possível obter a cotação. Verifique sua conexão.", tcUltimaAct:"Última atualização:",
+  tcConsultando:"⏳ Consultando…", tcActualizarBtn:"🔄 Atualizar taxa",
+  // Impostos
+  impuestoAyuda:"Configure o imposto de acordo com seu país: ICMS/ISS (Brasil), Sales Tax (EUA), VAT 19% (Alemanha), ou desative para exportações com taxa zero.",
+  impuestoEjemplos:"Exemplos: México IVA 16% · EUA sem imposto (B2B com certificado de isenção) · Alemanha VAT 19% · Espanha IVA 21% · Colômbia IVA 19% · Exportação direta: desativado (taxa zero)",
+  // PDF
+  notaRegimenFiscal:"Preço não inclui impostos — sujeito ao regime fiscal do cliente",
+  taglineFooter:"Sistema de Cotação Industrial",
+  // Aparência
+  temaClaro:"☀️ Claro Profissional (recomendado)", temaOscuro:"🌑 Escuro Industrial", temaMarino:"🌊 Azul Marinho",
+  plantillaFormalLbl:"📄 Formal", plantillaFormalDesc:"Clássico preto e branco",
+  plantillaIndustrialLbl:"⚙️ Industrial", plantillaIndustrialDesc:"Fundo escuro, impacto visual",
+  tamChico:"Pequeno", tamNormal:"Normal", tamGrande:"Grande",
+  // Segunda rodada
+  cerrarBtn:"Fechar", sinEmpresaLbl:"Sem empresa",
+  tiempoEntregaLbl:"Prazo de Entrega", condicionesPagoLbl:"Condições de Pagamento",
+  idiomaPDFLbl:"Idioma do PDF", notaAparecePDF:"→ aparece no PDF do cliente",
+  cantidadLbl:"Quantidade", horasCu:"Horas cada", kgCu:"Kg cada", laborColonLbl:"Mão de obra:",
+  folioActualLbl:"Número atual:", sinClienteLbl:"Sem cliente", contactoColonLbl:"Contato:",
+  btnIrClientes:"Ir para Clientes", listoLbl:"Concluído",
+  pasoCrearCotDesc:"Preencha os dados do trabalho, adicione os itens e gere um PDF profissional em segundos.",
+  volverBtn:"← Voltar", imprimirBtn:"🖨 Imprimir / PDF", plantillaColonLbl:"Modelo:",
+  fechaColonLbl:"Data:", trabajoColonLbl:"Trabalho: ", unidadPzaLbl:"pç", editarBtn:"✏️ Editar",
+  datosFiscalesTallerTitulo:"Dados Fiscais da Oficina (aparecem no PDF)", tcUsdMxnLbl:"Câmbio USD → MXN",
 };
 
 export const T18N: Record<string, Record<string, string>> = {
