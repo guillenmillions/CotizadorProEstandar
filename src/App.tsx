@@ -338,6 +338,11 @@ export default function CotizadorProEstandar() {
         const base = crearDatosIniciales(idiomaActivo);
         const cfgGuardado = data.datos?.config || {};
         setDatos({ ...base, ...data.datos, config: { ...base.config, ...cfgGuardado, idioma: idiomaActivo, tasas: tasasDesdeConfig(cfgGuardado) } });
+      } else if (error && error.code !== "PGRST116") {
+        // Error real (ej. permisos RLS, 403, red) — NO es una cuenta nueva.
+        // No sobrescribimos nada para no borrar datos que sí existen pero no se pudieron leer.
+        console.error("Error cargando datos:", error);
+        mostrarNotif(getT(idiomaActivo).errorCargaDatos||"No se pudieron cargar tus datos guardados. Revisa tu conexión o vuelve a intentar — no se sobrescribirá nada.", "error");
       } else {
         // Cuenta nueva, sin fila guardada todavía: usar valores localizados al idioma activo
         setDatos(crearDatosIniciales(idiomaActivo));
@@ -351,7 +356,10 @@ export default function CotizadorProEstandar() {
     setGuardando(true);
     const payload = { user_id: sesion.user.id, datos: nuevosDatos, updated_at: new Date().toISOString() };
     const { error } = await supabase.from("cotizaciones").upsert(payload, { onConflict: "user_id" });
-    if (error) console.error("Error guardando:", error);
+    if (error) {
+      console.error("Error guardando:", error);
+      mostrarNotif(getT(idiomaActivo).errorGuardado||"No se pudo guardar. Verifica tu conexión e intenta de nuevo.", "error");
+    }
     setGuardando(false);
   }, [sesion]);
 
