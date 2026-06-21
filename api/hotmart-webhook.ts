@@ -18,6 +18,10 @@
 // el servidor — es justo lo que se necesita aquí.
 
 import { createClient } from '@supabase/supabase-js';
+// Declaración mínima para que TypeScript reconozca `process.env` sin
+// instalar @types/node — Vercel ya provee `process` en tiempo de ejecución,
+// esto solo arregla el chequeo de tipos, no cambia el comportamiento.
+declare const process: { env: Record<string, string | undefined> };
 
 // Evento de Hotmart -> estado interno de la licencia.
 const MAPA_ESTADO: Record<string, string> = {
